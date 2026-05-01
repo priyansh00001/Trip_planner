@@ -83,13 +83,48 @@ function createStayIcon() {
   })
 }
 
+function createHomeIcon() {
+  return L.divIcon({
+    className: "custom-map-pin",
+    html: `<div style="
+      background: #10b981;
+      color: white;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      border: 3px solid white;
+      box-shadow: 0 0 15px rgba(16,185,129,0.8);
+      animation: pulse 2s infinite;
+    ">🏡</div>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    popupAnchor: [0, -24],
+  })
+}
+
 interface TripMapProps {
   plan: any
+}
+
+// Haversine distance in km between two lat/lng points
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
 export default function TripMap({ plan }: TripMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
+  const routeLineRef = useRef<L.Polyline | null>(null)
   const [activeDay, setActiveDay] = useState<number | null>(null)
 
   useEffect(() => {
@@ -104,9 +139,13 @@ export default function TripMap({ plan }: TripMapProps) {
       })
     })
 
-    plan.recommendedStays?.forEach((stay: any) => {
-      if (stay.lat && stay.lng) allCoords.push([stay.lat, stay.lng])
-    })
+    if (plan.confirmed_stay && plan.confirmed_stay.lat) {
+      allCoords.push([plan.confirmed_stay.lat, plan.confirmed_stay.lng])
+    } else {
+      plan.recommendedStays?.forEach((stay: any) => {
+        if (stay.lat && stay.lng) allCoords.push([stay.lat, stay.lng])
+      })
+    }
 
     if (allCoords.length === 0) return
 
@@ -123,18 +162,40 @@ export default function TripMap({ plan }: TripMapProps) {
     }).addTo(map)
 
     // Add stay markers
-    plan.recommendedStays?.forEach((stay: any) => {
-      if (!stay.lat || !stay.lng) return
-      L.marker([stay.lat, stay.lng], { icon: createStayIcon() })
+    if (plan.confirmed_stay && plan.confirmed_stay.lat) {
+      const stay = plan.confirmed_stay
+      L.marker([stay.lat, stay.lng], { icon: createHomeIcon() })
         .addTo(map)
         .bindPopup(`
           <div style="font-family: system-ui; min-width: 180px;">
-            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #3b82f6; letter-spacing: 0.5px;">🏨 Your Stay</div>
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #10b981; letter-spacing: 0.5px;">🏡 Locked Basecamp</div>
             <div style="font-size: 15px; font-weight: 700; margin-top: 4px;">${stay.name}</div>
-            <div style="font-size: 12px; color: #666; margin-top: 2px;">⭐ ${stay.rating || "N/A"} · ${stay.price}</div>
+            <div style="font-size: 12px; color: #666; margin-top: 2px;">Your Confirmed Booking</div>
           </div>
         `)
-    })
+    } else {
+      plan.recommendedStays?.forEach((stay: any) => {
+        if (!stay.lat || !stay.lng) return
+        L.marker([stay.lat, stay.lng], { icon: createStayIcon() })
+          .addTo(map)
+          .bindPopup(`
+            <div style="font-family: system-ui; min-width: 180px;">
+              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #3b82f6; letter-spacing: 0.5px;">🏨 AI Recommendation</div>
+              <div style="font-size: 15px; font-weight: 700; margin-top: 4px;">${stay.name}</div>
+              <div style="font-size: 12px; color: #666; margin-top: 2px;">⭐ ${stay.rating || "N/A"} · ${stay.price}</div>
+            </div>
+          `)
+      })
+    }
+
+    // Get primary stay coordinates for distance calculations
+    let primaryStay = plan.recommendedStays?.[0]
+    if (plan.confirmed_stay && plan.confirmed_stay.lat) {
+      primaryStay = plan.confirmed_stay
+    }
+    const stayLatLng = (primaryStay?.lat && primaryStay?.lng)  
+      ? L.latLng(primaryStay.lat, primaryStay.lng) 
+      : null
 
     // Add activity markers grouped by day
     plan.days?.forEach((day: any) => {
@@ -142,31 +203,75 @@ export default function TripMap({ plan }: TripMapProps) {
 
       day.activities?.forEach((act: any) => {
         if (!act.lat || !act.lng) return
-        L.marker([act.lat, act.lng], { icon: createDayIcon(day.dayNumber, act.category) })
+        
+        // Distance calculations from basecamp
+        let distanceHtml = ""
+        let actLatLng: L.LatLng | null = null
+        if (stayLatLng && act.lat && act.lng) {
+          actLatLng = L.latLng(act.lat, act.lng)
+          const distKm = haversineKm(
+            stayLatLng.lat, stayLatLng.lng,
+            act.lat, act.lng
+          )
+          const walkMins = Math.round((distKm / 5) * 60)
+          const driveMins = Math.round((distKm / 30) * 60)
+          const distDisplay = distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`
+
+          distanceHtml = `
+            <div style="margin-top: 8px; background: #1e40af10; border: 1px solid #3b82f630; border-radius: 8px; padding: 6px 10px;">
+              <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #3b82f6; letter-spacing: 0.5px; margin-bottom: 4px;">📍 From Your Basecamp</div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <span style="font-size: 12px; font-weight: 700; color: #1d4ed8;">🗺️ ${distDisplay}</span>
+                <span style="font-size: 12px; color: #555;">🚶 ${walkMins < 60 ? walkMins + ' min walk' : Math.round(walkMins/60) + 'h walk'}</span>
+                <span style="font-size: 12px; color: #555;">🚗 ${driveMins} min drive</span>
+              </div>
+            </div>`
+        }
+
+        let metroHtml = ""
+        if (act.nearestMetro && act.nearestMetro.station) {
+          metroHtml = `<div style="font-size: 11px; color: #10b981; margin-top: 5px; font-weight: 600; background: #10b98115; padding: 2px 6px; border-radius: 4px; display: inline-block;">🚇 ${act.nearestMetro.station} (${act.nearestMetro.line}) · ${act.nearestMetro.walkMins} min walk</div>`
+        }
+
+        const marker = L.marker([act.lat, act.lng], { icon: createDayIcon(day.dayNumber, act.category) })
           .addTo(map)
           .bindPopup(`
-            <div style="font-family: system-ui; min-width: 200px;">
-              <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: ${dayColor}; letter-spacing: 0.5px;">Day ${day.dayNumber} · ${act.time}</div>
-              <div style="font-size: 15px; font-weight: 700; margin-top: 4px;">${act.name}</div>
-              <div style="font-size: 12px; color: #666; margin-top: 2px;">⭐ ${act.rating || "N/A"} · ${act.costEstimate}</div>
-              <div style="font-size: 11px; color: #888; margin-top: 4px;">${act.description || ""}</div>
+            <div style="font-family: system-ui; min-width: 220px;">
+              <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: ${dayColor}; letter-spacing: 0.5px;">Day ${day.dayNumber} · ${act.time}</div>
+              <div style="font-size: 15px; font-weight: 700; margin-top: 4px; line-height: 1.2;">${act.name}</div>
+              <div style="font-size: 12px; color: #666; margin-top: 4px; font-weight: 500;">⭐ ${act.rating || "N/A"} · ${act.costEstimate}</div>
+              <div style="font-size: 11.5px; color: #888; margin-top: 6px; line-height: 1.4;">${act.description || ""}</div>
+              ${distanceHtml}
+              ${metroHtml}
             </div>
           `)
+
+        // Draw dashed line from stay → activity on popup open, remove on close
+        if (stayLatLng && actLatLng) {
+          const aLatLng = actLatLng
+          marker.on("popupopen", () => {
+            if (routeLineRef.current) {
+              routeLineRef.current.remove()
+            }
+            routeLineRef.current = L.polyline(
+              [stayLatLng, aLatLng],
+              {
+                color: "#6366f1",
+                weight: 2.5,
+                opacity: 0.8,
+                dashArray: "8, 6",
+              }
+            ).addTo(map)
+          })
+          marker.on("popupclose", () => {
+            if (routeLineRef.current) {
+              routeLineRef.current.remove()
+              routeLineRef.current = null
+            }
+          })
+        }
       })
 
-      // Draw route lines connecting activities within a day
-      const dayCoords: [number, number][] = day.activities
-        ?.filter((a: any) => a.lat && a.lng)
-        .map((a: any) => [a.lat, a.lng] as [number, number]) || []
-
-      if (dayCoords.length >= 2) {
-        L.polyline(dayCoords, {
-          color: dayColor,
-          weight: 3,
-          opacity: 0.6,
-          dashArray: "8, 6",
-        }).addTo(map)
-      }
     })
 
     // Fit map to bounds
@@ -188,8 +293,12 @@ export default function TripMap({ plan }: TripMapProps) {
 
   if (!hasCoords) {
     return (
-      <div className="w-full h-64 rounded-2xl bg-muted/50 flex items-center justify-center text-muted-foreground border border-dashed">
-        <p className="text-sm">Map unavailable — no coordinates in this plan. Regenerate to enable the map.</p>
+      <div className="w-full h-64 rounded-2xl bg-muted/20 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed gap-3 px-6 text-center">
+        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+          <span className="text-2xl">🗺️</span>
+        </div>
+        <p className="text-sm font-medium">Map not available for this trip</p>
+        <p className="text-xs max-w-sm">This plan was generated before map support was added. Click <strong>"Modify Trip"</strong> below and regenerate to see all your places plotted on an interactive map!</p>
       </div>
     )
   }
@@ -198,23 +307,28 @@ export default function TripMap({ plan }: TripMapProps) {
     <div className="w-full rounded-2xl overflow-hidden border shadow-lg">
       <div ref={mapRef} className="w-full h-[400px] sm:h-[500px]" />
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 p-3 bg-card border-t text-xs">
-        <span className="flex items-center gap-1.5 font-semibold text-muted-foreground">
-          🏨 Stay
-        </span>
-        {plan.days?.map((day: any) => (
-          <span
-            key={day.dayNumber}
-            className="flex items-center gap-1.5 font-semibold"
-            style={{ color: DAY_COLORS[(day.dayNumber - 1) % DAY_COLORS.length] }}
-          >
-            <span
-              className="w-3 h-3 rounded-full inline-block"
-              style={{ background: DAY_COLORS[(day.dayNumber - 1) % DAY_COLORS.length] }}
-            />
-            Day {day.dayNumber}
+      <div className="flex flex-wrap gap-3 p-3 bg-card border-t text-xs items-center justify-between">
+        <div className="flex flex-wrap gap-3 items-center">
+          <span className="flex items-center gap-1.5 font-semibold text-muted-foreground">
+            🏨 Stay
           </span>
-        ))}
+          {plan.days?.map((day: any) => (
+            <span
+              key={day.dayNumber}
+              className="flex items-center gap-1.5 font-semibold"
+              style={{ color: DAY_COLORS[(day.dayNumber - 1) % DAY_COLORS.length] }}
+            >
+              <span
+                className="w-3 h-3 rounded-full inline-block"
+                style={{ background: DAY_COLORS[(day.dayNumber - 1) % DAY_COLORS.length] }}
+              />
+              Day {day.dayNumber}
+            </span>
+          ))}
+        </div>
+        <span className="text-muted-foreground/60 text-[10px] italic">
+          📍 Click any pin to see distance &amp; travel time from your stay
+        </span>
       </div>
     </div>
   )

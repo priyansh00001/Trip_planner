@@ -128,3 +128,122 @@
     @apply font-sans;
   }
 }
+
+/* ============================================================
+   PRINT / PDF EXPORT STYLES
+   Triggered when user clicks Export → window.print()
+   ============================================================ */
+@media print {
+  /* Force white background, black text regardless of dark mode */
+  * {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Page setup — A4, sensible margins */
+  @page {
+    size: A4;
+    margin: 16mm 14mm;
+  }
+
+  /* Hide all interactive & visual chrome */
+  .print\:hidden,
+  [class*="fixed"],
+  [class*="FloatingChat"],
+  nav,
+  button,
+  a[href] > button,
+  .leaflet-container,
+  .leaflet-map-pane,
+  [class*="motion"],
+  [data-radix-popper-content-wrapper] {
+    display: none !important;
+  }
+
+  /* Hide specific sections not useful in print */
+  .no-print { display: none !important; }
+
+  /* Hero header: simplify to plain text block */
+  .print-hero {
+    text-align: center;
+    padding: 12px 0 20px;
+    border-bottom: 2px solid #6366f1;
+    margin-bottom: 20px;
+  }
+
+  .print-hero h1 {
+    font-size: 26pt;
+    font-weight: 800;
+    color: #1e1b4b !important;
+    margin-bottom: 6px;
+  }
+
+  .print-hero .print-meta {
+    font-size: 11pt;
+    color: #4b5563 !important;
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  /* Day cards */
+  .print-day {
+    page-break-inside: avoid;
+    margin-bottom: 20px;
+    border-left: 4px solid #6366f1;
+    padding-left: 12px;
+  }
+
+  .print-day-header {
+    font-size: 14pt;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #1e1b4b !important;
+  }
+
+  /* Activity rows */
+  .print-activity {
+    display: flex;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .print-activity:last-child { border-bottom: none; }
+
+  .print-activity-time {
+    font-size: 8pt;
+    font-weight: 600;
+    color: #6366f1 !important;
+    width: 70px;
+    flex-shrink: 0;
+    padding-top: 1px;
+  }
+
+  .print-activity-name {
+    font-size: 10pt;
+    font-weight: 700;
+  }
+
+  .print-activity-desc {
+    font-size: 9pt;
+    color: #6b7280 !important;
+    margin-top: 2px;
+  }
+
+  /* Footer */
+  .print-footer {
+    text-align: center;
+    font-size: 8pt;
+    color: #9ca3af !important;
+    margin-top: 24px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+  }
+}

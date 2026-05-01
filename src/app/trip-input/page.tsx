@@ -21,11 +21,20 @@ export default function TripInputPage() {
   const [days, setDays] = useState<number>(3)
   const [budget, setBudget] = useState<number>(10000)
   const [accommodation, setAccommodation] = useState("No Preference")
+  
+  // Initialize to today's date
+  const todayStr = new Date().toISOString().split('T')[0]
+  const [journeyDate, setJourneyDate] = useState(todayStr)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!destination.trim()) {
       setError("Please enter a destination")
+      return
+    }
+
+    if (journeyDate < todayStr) {
+      setError("Journey date cannot be in the past")
       return
     }
 
@@ -43,7 +52,8 @@ export default function TripInputPage() {
         duration_days: days,
         budget_range: String(budget),
         preference: accommodation,
-        status: 'generating'
+        status: 'generating_stays',
+        start_date: journeyDate
       }).select().single()
 
       if (insertError) {
@@ -52,8 +62,8 @@ export default function TripInputPage() {
         return
       }
 
-      // Redirect to the AI generation screen (Module 6) passing the new trip ID
-      router.push(`/generate/${data.id}`)
+      // Redirect to the Phase 1 AI generation screen (Stays) passing the new trip ID
+      router.push(`/generate-stays/${data.id}`)
     } else {
       setError("You must be logged in to create a trip.")
       setIsSubmitting(false)
@@ -93,6 +103,21 @@ export default function TripInputPage() {
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   className="flex h-12 w-full text-lg rounded-md border border-input bg-transparent px-4 py-2 shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                  required
+                />
+              </div>
+
+              {/* Journey Date */}
+              <div className="space-y-3">
+                <label className="text-sm font-semibold flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-primary" /> Start Date
+                </label>
+                <input
+                  type="date"
+                  min={todayStr}
+                  value={journeyDate}
+                  onChange={(e) => setJourneyDate(e.target.value)}
+                  className="flex h-12 w-full text-lg rounded-md border border-input bg-transparent px-4 py-2 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                   required
                 />
               </div>

@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Compass, Home, LogOut, MapPin, User, Settings } from "lucide-react"
 
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -11,12 +11,18 @@ import { createClient } from "@/lib/supabase/client"
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
 
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push("/login")
   }
+
+  const navItems = [
+    { href: "/dashboard", label: "Dashboard", icon: Home, exact: true },
+    { href: "/dashboard/explore", label: "Explore Destinations", icon: Compass },
+  ]
 
   return (
     <div className="flex min-h-screen w-full flex-col md:flex-row bg-background">
@@ -29,25 +35,23 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               AI Trip Planner
             </span>
           </Link>
-          <ThemeToggle />
         </div>
         
         <div className="flex-1 overflow-auto py-2">
           <nav className="grid items-start px-2 text-sm font-medium lg:px-4 space-y-1">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2 text-primary transition-all hover:text-primary"
-            >
-              <Home className="h-4 w-4" />
-              Dashboard
-            </Link>
-            <Link
-              href="/dashboard/explore"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
-            >
-              <Compass className="h-4 w-4" />
-              Explore Destinations
-            </Link>
+            {navItems.map(item => {
+              const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary ${isActive ? "bg-muted text-primary" : "text-muted-foreground"}`}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              )
+            })}
           </nav>
         </div>
         
