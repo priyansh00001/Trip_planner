@@ -28,6 +28,15 @@ async def validator_node(state: dict) -> dict:
         if name:
             valid_places[name] = place
 
+    # Whitelist user-selected places so fuzzy matching doesn't remove them!
+    req = state.get("request")
+    if req:
+        selected_places = getattr(req, "selected_places", []) or []
+        for place in selected_places:
+            name = place.get("name", "").lower().strip()
+            if name:
+                valid_places[name] = place
+
     # Build valid hotels list
     valid_hotels = {}
     for hotel in retrieved.get("hotels", []):

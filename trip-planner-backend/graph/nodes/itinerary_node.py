@@ -30,27 +30,106 @@ async def itinerary_node(state: dict) -> dict:
     # Calculate budget in INR
     budget_inr = int(req.budget_usd * 83)
 
-    system_prompt = """You are a travel itinerary builder. You will receive real
-data about a destination. You must ONLY use places, hotels, and
-activities from the provided context. Never invent place names,
-prices, coordinates, or hotel names. If the context has fewer
-places than days, reuse places at different times of day.
-Always output valid JSON matching the schema provided."""
+    system_prompt = """You are India's #1 travel expert and local guide. You have encyclopedic knowledge of every famous cafe, restaurant, beach, temple, museum, market, trek, and hidden gem across India.
+You will build a hyper-detailed, day-by-day travel plan using real places, hotels, and activities.
+You must ONLY use the places and activities from the provided context (RAG context + user's selected places).
+Never invent fake place names, coordinates, or hotel names.
+
+CRITICAL RULES:
+1. Every place name MUST be a real, existing establishment in the destination.
+2. Group activities logically into: Morning → Afternoon → Evening.
+3. Every activity MUST have real, accurate GPS coordinates (lat/lng) as numbers. Do NOT reuse coordinates across activities; each activity must have its actual unique coordinates.
+4. For cafes/restaurants, always include a specific "signatureDish".
+5. For activities, always provide a specific "proTip" (e.g. "Visit at 5 PM for sunset views").
+6. For every outdoor activity, provide an "indoorAlternative" (e.g. in case of heavy rain).
+7. Provide a "streetFood" array with 3 local street foods to try, their hints, and descriptions.
+8. Provide a "localTips" object containing "etiquette" (at least 2 items) and "scamsToAvoid" (at least 2 items).
+
+You MUST output ONLY a valid JSON object matching the exact schema:
+{
+  "tripTitle": "Catchy exciting title",
+  "destination": "Name of destination",
+  "estimatedCost": "₹XXXXX",
+  "highlights": ["Highlight 1", "Highlight 2"],
+  "bestTimeToVisit": "e.g. October - March",
+  "streetFood": [
+    {
+      "name": "Street Food Name",
+      "location_hint": "Where to find it",
+      "description": "Why try it"
+    }
+  ],
+  "localTips": {
+    "etiquette": ["Rule 1", "Rule 2"],
+    "scamsToAvoid": ["Scam 1", "Scam 2"]
+  },
+  "days": [
+    {
+      "dayNumber": 1,
+      "theme": "Catchy theme of the day",
+      "activities": [
+        {
+          "time": "Morning/Afternoon/Evening",
+          "name": "REAL place name",
+          "category": "Cafe/Beach/Temple/Museum/Market/Trek/Viewpoint/Club/Heritage/Park/etc",
+          "rating": 4.5,
+          "description": "Short description of what they will do",
+          "whyVisit": "Short one-liner on why it's famous",
+          "signatureDish": "Signature dish if food place, otherwise null",
+          "proTip": "Pro-tip if monument/activity, otherwise null",
+          "indoorAlternative": {
+            "name": "Real Indoor Alternative Place",
+            "description": "Why go here if it rains"
+          },
+          "costEstimate": "₹XXX",
+          "icon": "Coffee/MapPin/Building2/Compass/Utensils/Mountain",
+          "lat": 28.6139,
+          "lng": 77.2090
+        }
+      ]
+    }
+  ]
+}"""
+
+    # Build stay context
+    confirmed_stay = getattr(req, "confirmed_stay", None)
+    if confirmed_stay:
+        stay_context = f"""
+STAY CONTEXT (THE HOTEL IS CONFIRMED):
+The traveler has already booked their stay at: "{confirmed_stay.get('name')}" ({confirmed_stay.get('type')}) located at {confirmed_stay.get('address', req.destination)}.
+Plan all activities to logically start and end near this basecamp each day. DO NOT recommend stays or hotels in the daily itinerary."""
+    else:
+        stay_context = f"They prefer staying in a place matching style: {req.style}."
+
+    # Build selected places context
+    selected_places = getattr(req, "selected_places", []) or []
+    if selected_places:
+        selected_places_context = f"""
+MUST-INCLUDE PLACES (The traveler personally picked these — they MUST appear in the itinerary):
+{json.dumps(selected_places, indent=2)}
+
+You must distribute these selected places logically across the {n_days} days of the itinerary, and fill in the rest of the day with other highly rated places from the retrieved context or general knowledge."""
+    else:
+        selected_places_context = "Select the best places from the context to plan a memorable trip."
 
     user_prompt = f"""Destination: {req.destination}
 Dates: {req.start_date} to {req.end_date} ({n_days} days)
 Budget: ₹{budget_inr:,} total for {req.travelers} people
 Style: {req.style}
-Origin: {req.origin_city}"""
+Origin: {req.origin_city}
+
+{stay_context}
+
+{selected_places_context}"""
 
     # Add retrieved context if available
     if retrieved:
         user_prompt += f"""
 
-AVAILABLE PLACES (use only these):
+AVAILABLE PLACES (use only these to supplement):
 {json.dumps(retrieved.get('places', [])[:20])}
 
-AVAILABLE HOTELS (use only these):
+AVAILABLE HOTELS:
 {json.dumps(retrieved.get('hotels', [])[:10])}
 
 WEATHER FORECAST:
@@ -65,24 +144,14 @@ LOCAL INSIGHTS:
 UPCOMING EVENTS:
 {json.dumps(retrieved.get('events', [])[:5])}"""
 
-        user_prompt += """
-
-Build a day-by-day itinerary JSON with keys:
-days (array of {day_number, theme, morning, afternoon, evening,
-hotel, estimated_cost_inr}), total_cost_inr, highlights (3 strings),
-packing_tips (5 strings based on weather and destination type)"""
+        user_prompt += "\n\nBuild the day-by-day itinerary JSON matching the exact schema."
     else:
         user_prompt += """
 
 NOTE: Destination data unavailable - itinerary based on general knowledge.
-Use your best judgment for the destination."""
+Use your best judgment for the destination.
 
-        user_prompt += """
-
-Build a day-by-day itinerary JSON with keys:
-days (array of {day_number, theme, morning, afternoon, evening,
-hotel, estimated_cost_inr}), total_cost_inr, highlights (3 strings),
-packing_tips (5 strings based on weather and destination type)"""
+Build the day-by-day itinerary JSON matching the exact schema."""
 
     try:
         response = await llm.ainvoke([
