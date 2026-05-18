@@ -90,8 +90,8 @@ export default function SelectStayPage() {
       })
       .eq('id', trip.id)
 
-    // Now route to the existing generate page which will create the itinerary
-    router.push(`/generate/${trip.id}`)
+    // Route to the Pick Places page (new step in flow)
+    router.push(`/pick-places/${trip.id}`)
   }
 
   if (loading) {

@@ -46,13 +46,14 @@ export default function GeneratePage() {
 
         if (tripError || !tripData) throw new Error("Could not find trip details.")
 
-        // 2. Call our secure Next.js API route — pass confirmed_stay so the AI builds around it
+        // 2. Call our secure Next.js API route — pass confirmed_stay and selected_places
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...tripData,
             confirmed_stay: tripData.plan_data?.confirmed_stay ?? null,
+            selected_places: tripData.plan_data?.selected_places ?? [],
           }),
         })
 

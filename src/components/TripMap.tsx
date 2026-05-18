@@ -236,13 +236,17 @@ export default function TripMap({ plan }: TripMapProps) {
         const marker = L.marker([act.lat, act.lng], { icon: createDayIcon(day.dayNumber, act.category) })
           .addTo(map)
           .bindPopup(`
-            <div style="font-family: system-ui; min-width: 220px;">
+            <div style="font-family: system-ui; min-width: 240px;">
               <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: ${dayColor}; letter-spacing: 0.5px;">Day ${day.dayNumber} · ${act.time}</div>
               <div style="font-size: 15px; font-weight: 700; margin-top: 4px; line-height: 1.2;">${act.name}</div>
               <div style="font-size: 12px; color: #666; margin-top: 4px; font-weight: 500;">⭐ ${act.rating || "N/A"} · ${act.costEstimate}</div>
               <div style="font-size: 11.5px; color: #888; margin-top: 6px; line-height: 1.4;">${act.description || ""}</div>
               ${distanceHtml}
               ${metroHtml}
+              <div style="margin-top: 10px; display: flex; gap: 6px;">
+                <a href="https://www.google.com/maps/search/?api=1&query=${act.lat},${act.lng}" target="_blank" rel="noopener noreferrer" style="flex: 1; text-align: center; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 8px; font-size: 11px; font-weight: 700; text-decoration: none; display: block;">🗺️ Open in Maps</a>
+                <a href="https://www.google.com/maps/dir/?api=1&destination=${act.lat},${act.lng}" target="_blank" rel="noopener noreferrer" style="flex: 1; text-align: center; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; border-radius: 6px; padding: 6px 8px; font-size: 11px; font-weight: 700; text-decoration: none; display: block;">🧭 Navigate Here</a>
+              </div>
             </div>
           `)
 
@@ -326,9 +330,19 @@ export default function TripMap({ plan }: TripMapProps) {
             </span>
           ))}
         </div>
-        <span className="text-muted-foreground/60 text-[10px] italic">
-          📍 Click any pin to see distance &amp; travel time from your stay
-        </span>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <span className="text-muted-foreground/60 text-[10px] italic hidden sm:block">
+            📍 Click any pin for distance &amp; directions
+          </span>
+          <a
+            href={`https://www.google.com/maps/search/bike+scooter+rental+near+${encodeURIComponent(plan.destination)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors whitespace-nowrap"
+          >
+            🛵 Find Rentals Nearby
+          </a>
+        </div>
       </div>
     </div>
   )

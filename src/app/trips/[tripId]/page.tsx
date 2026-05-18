@@ -435,8 +435,7 @@ export default function TripPlanPage() {
           </motion.div>
         )}
 
-        {/* Packing Checklist Generator */}
-        <PackingChecklist destination={plan.destination} duration_days={trip.duration_days} plan={plan} />
+        {/* Packing Checklist Generator - Moved to Trip Tools Drawer */}
 
         <div className="space-y-14">
           {(plan.days || []).map((day: any, idx: number) => {
@@ -935,6 +934,7 @@ export default function TripPlanPage() {
                 { label: "Phrases", icon: Languages, color: "from-blue-500 to-indigo-600", action: () => { setLanguageOpen(true); setFabOpen(false) } },
                 { label: "Budget", icon: Wallet, color: "from-emerald-500 to-teal-600", action: () => { setBudgetOpen(true); setFabOpen(false) } },
                 { label: "Packing", icon: Briefcase, color: "from-sky-500 to-blue-600", action: () => { setPackingOpen(true); setFabOpen(false) } },
+                { label: "AI Chat", icon: MessageSquarePlus, color: "from-violet-500 to-purple-600", action: () => { setChatOpen(true); setFabOpen(false) } },
                 { label: "Metro", icon: Train, color: "from-teal-500 to-cyan-600", action: () => { setMetroOpen(true); setFabOpen(false) } },
               ].map((item, i) => {
                 const Icon = item.icon
@@ -1007,6 +1007,7 @@ export default function TripPlanPage() {
         isOpen={streetFoodOpen} 
         onClose={() => setStreetFoodOpen(false)} 
         streetFood={plan.streetFood} 
+        destination={plan.destination}
       />
 
       {/* Emergency SOS Drawer */}

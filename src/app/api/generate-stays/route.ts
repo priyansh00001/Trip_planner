@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { callAI, parseAIJson } from '@/lib/ai'
 
 export async function POST(request: Request) {
   try {
@@ -36,42 +37,26 @@ Return ONLY a valid JSON object with this exact structure:
   ]
 }`
 
-    const groqKey = process.env.GROQ_API_KEY
-    const fetchGroq = async (modelName: string) => {
-      return await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${groqKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: modelName,
-          messages: [
-            { role: "system", content: "You are an expert Indian travel planner. You respond ONLY with valid JSON." },
-            { role: "user", content: prompt }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.7,
-          max_tokens: 3000,
-        })
-      })
+    const { content, provider } = await callAI({
+      prompt,
+      systemPrompt: 'You are an expert Indian travel planner. You respond ONLY with valid JSON.',
+      temperature: 0.7,
+      maxTokens: 3000,
+    })
+
+    if (provider === 'none' || !content) {
+      return NextResponse.json({
+        error: "All AI providers are currently unavailable. Please try again in a few minutes.",
+        stays: []
+      }, { status: 503 })
     }
 
-    let groqRes = await fetchGroq("llama-3.3-70b-versatile")
-    if (!groqRes.ok) {
-      console.warn(`Groq 70B Failed (Status ${groqRes.status}). Automatically falling back to Llama 3.1 8B...`)
-      groqRes = await fetchGroq("llama-3.1-8b-instant")
+    const parsed = parseAIJson(content)
+    if (!parsed) {
+      return NextResponse.json({ error: "Failed to parse stays data" }, { status: 500 })
     }
 
-    const groqData = await groqRes.json()
-    if (!groqRes.ok) {
-      throw new Error(groqData.error?.message || "Failed to fetch stays from Groq")
-    }
-
-    const rawContent = groqData.choices[0].message.content
-    const parsedData = JSON.parse(rawContent)
-
-    return NextResponse.json(parsedData)
+    return NextResponse.json(parsed)
   } catch (error: any) {
     console.error("Generate Stays API Error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })

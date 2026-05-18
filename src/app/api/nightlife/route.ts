@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { callAI, parseAIJson } from '@/lib/ai'
 
 export async function POST(request: Request) {
   try {
@@ -29,76 +30,37 @@ Return ONLY valid JSON:
   ]
 }`
 
-    const groqKey = process.env.GROQ_API_KEY
-    let result: any = null
+    const { content, provider } = await callAI({
+      prompt,
+      systemPrompt: 'You are a nightlife expert. Respond ONLY with valid JSON. Never output markdown.',
+      temperature: 0.7,
+      maxTokens: 2048,
+    })
 
-    if (groqKey) {
-      const fetchGroqNightlife = async (modelName: string) => {
-        const payload: any = {
-          model: modelName,
-          messages: [
-            { role: "system", content: "You are a nightlife expert. Respond ONLY with valid JSON. Never output markdown." },
-            { role: "user", content: prompt }
-          ],
-          temperature: 0.7,
-          max_tokens: 2048,
-        }
-        if (modelName.includes("llama")) {
-          payload.response_format = { type: "json_object" }
-        }
-
-        return await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${groqKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload)
-        })
-      }
-
-      try {
-        let res = await fetchGroqNightlife("llama-3.3-70b-versatile")
-        
-        // Model Cascade Fallback: If 70B is rate limited (429), try Mixtral instantly
-        if (!res.ok && res.status === 429) {
-          console.warn("Nightlife Groq 70B Rate Limited. Falling back to Mixtral 8x7b...")
-          res = await fetchGroqNightlife("mixtral-8x7b-32768")
-        }
-
-        const data = await res.json()
-        if (res.ok && data.choices?.[0]?.message?.content) {
-          let rawContent = data.choices[0].message.content
-          rawContent = rawContent.replace(/^```json\s*/, "")
-          rawContent = rawContent.replace(/```\s*$/, "")
-          result = JSON.parse(rawContent)
-        }
-      } catch (err: any) {
-        console.warn("Groq nightlife error:", err.message)
+    if (provider !== 'none' && content) {
+      const parsed = parseAIJson(content)
+      if (parsed) {
+        return NextResponse.json(parsed)
       }
     }
 
     // Fallback mock
-    if (!result) {
-      result = {
-        spots: [
-          {
-            name: `API ERROR: AI Failed`,
-            category: "Error",
-            vibe: "Rate Limit Exceeded on Groq",
-            rating: 0,
-            priceRange: "-",
-            bestFor: "Check Terminal",
-            timings: "N/A",
-            whyGo: "The AI failed to generate real data due to token limits.",
-            lat: 15.5500,
-            lng: 73.7550
-          }
-        ]
-      }
-    }
-
-    return NextResponse.json(result)
+    return NextResponse.json({
+      spots: [
+        {
+          name: `No nightlife data available`,
+          category: "Info",
+          vibe: "AI providers are currently unavailable",
+          rating: 0,
+          priceRange: "-",
+          bestFor: "Try again later",
+          timings: "N/A",
+          whyGo: "All AI providers failed. Please try again in a few minutes.",
+          lat: 15.5500,
+          lng: 73.7550
+        }
+      ]
+    })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

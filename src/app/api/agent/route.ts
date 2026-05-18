@@ -1,4 +1,46 @@
 import { NextResponse } from 'next/server'
+import { callAI, parseAIJson } from '@/lib/ai'
+
+/**
+ * Compress plan JSON to reduce token count.
+ * Strips verbose fields (descriptions, tips, whyVisit) from activities
+ * since the AI doesn't need them to make edits — it just needs names + coords.
+ * Reduces token count from ~7,000-8,000 to ~2,000-3,000.
+ */
+function compressPlan(plan: any) {
+  return {
+    ...plan,
+    // Remove large top-level text fields not needed for editing
+    localTips: undefined,
+    streetFood: undefined,
+    culturalNotes: undefined,
+    days: plan.days?.map((day: any) => ({
+      dayNumber: day.dayNumber,
+      theme: day.theme,
+      activities: day.activities?.map((act: any) => ({
+        time: act.time,
+        name: act.name,
+        category: act.category,
+        icon: act.icon,
+        lat: act.lat,
+        lng: act.lng,
+        costEstimate: act.costEstimate,
+        rating: act.rating,
+        // Keep these short fields, strip verbose ones
+        description: act.description?.substring(0, 80),
+        // Omit: whyVisit, proTip, signatureDish, nearestMetro, indoorAlternative, journalNote, etc.
+        ...(act.journalDone ? { journalDone: act.journalDone, journalNote: act.journalNote, journalSpend: act.journalSpend, journalRating: act.journalRating } : {})
+      }))
+    })),
+    recommendedStays: plan.recommendedStays?.map((s: any) => ({
+      name: s.name, type: s.type, price: s.price, lat: s.lat, lng: s.lng
+    })),
+    confirmed_stay: plan.confirmed_stay ? {
+      name: plan.confirmed_stay.name, type: plan.confirmed_stay.type,
+      lat: plan.confirmed_stay.lat, lng: plan.confirmed_stay.lng
+    } : undefined,
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -8,81 +50,85 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing message or current plan data" }, { status: 400 })
     }
 
-    const groqKey = process.env.GROQ_API_KEY
-    if (!groqKey) {
-      return NextResponse.json({ error: "Groq API Key not found" }, { status: 500 })
-    }
+    // Compress plan to reduce token count significantly
+    const compressedPlan = compressPlan(plan)
 
-    const prompt = `You are a precise travel itinerary editor. Your job is to make ONLY the exact changes the user requests — nothing more, nothing less.
+    const prompt = `You are a precise travel itinerary editor. Make ONLY the exact changes the user requests.
 
-CURRENT TRIP PLAN:
-${JSON.stringify(plan)}
+CURRENT TRIP PLAN (compressed):
+${JSON.stringify(compressedPlan)}
 
 USER REQUEST: "${message}"
 
-STRICT RULES:
-1. COUNT what the user asked for. If they say "add a restaurant" → add EXACTLY 1 restaurant. If they say "add 2 cafes" → add exactly 2 cafes. NEVER add more items than requested.
-2. DO NOT add any extra activities, cafes, restaurants, or anything else that was not explicitly requested. If the user asked for 1 thing, you add 1 thing.
-3. DO NOT "pad" the itinerary or make the day feel "complete". Only touch what was asked.
-4. ADDING: append the new activity object to the correct day's "activities" array with all required fields: time, name, category, rating, description, whyVisit, costEstimate, icon, lat, lng. Use real GPS coordinates.
-5. REMOVING: delete only that exact activity from the array.
-6. REPLACING: remove the old one, insert the new one at the same position.
-7. ALL other days, activities, hotels, and data must remain completely unchanged.
-8. Return the COMPLETE JSON with ALL days. NEVER return markdown or text outside the JSON.
+RULES:
+1. Add EXACTLY what is asked — no extra activities.
+2. ADDING: append to the correct day's "activities" array with fields: time, name, category, rating, description, whyVisit, costEstimate, icon, lat, lng (real GPS coords).
+3. REMOVING: delete only that activity.
+4. REPLACING: remove old, insert new at same position.
+5. Return the COMPLETE plan JSON with ALL days intact. NEVER return markdown.
 
-Return ONLY the raw complete JSON object.`
+Return ONLY the raw JSON object.`
 
-    const fetchGroqAgent = async (modelName: string) => {
-      const payload: any = {
-        model: modelName,
-        messages: [
-          { role: "system", content: "You are an Indian public transport and travel expert backend service. Respond ONLY with valid JSON. Never output markdown or text outside the JSON." },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.5,
-        max_tokens: 5000, 
-      }
-      
-      if (modelName.includes("llama")) {
-        payload.response_format = { type: "json_object" }
-      }
+    const { content, provider } = await callAI({
+      prompt,
+      systemPrompt: 'You are a travel itinerary editor. Respond ONLY with valid JSON.',
+      temperature: 0.3,
+      maxTokens: 4000,
+    })
 
-      return await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${groqKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload)
+    if (provider === 'none' || !content) {
+      return NextResponse.json(
+        { error: "All AI providers are rate-limited right now. Please wait 1–2 minutes and try again." },
+        { status: 503 }
+      )
+    }
+
+    const editedCompressedPlan = parseAIJson(content)
+    if (!editedCompressedPlan) {
+      return NextResponse.json(
+        { error: "AI returned invalid JSON. Please try again." },
+        { status: 500 }
+      )
+    }
+
+    // Merge edited compressed plan back into original full plan
+    // This restores all the verbose fields (descriptions, tips, etc.) the AI stripped
+    const mergedPlan = {
+      ...plan,
+      days: editedCompressedPlan.days?.map((editedDay: any) => {
+        const originalDay = plan.days?.find((d: any) => d.dayNumber === editedDay.dayNumber)
+        if (!originalDay) return editedDay
+
+        return {
+          ...originalDay,
+          activities: editedDay.activities?.map((editedAct: any, i: number) => {
+            // Try to match by name to restore original verbose fields
+            const originalAct = originalDay.activities?.find(
+              (a: any) => a.name === editedAct.name
+            ) || originalDay.activities?.[i]
+
+            if (originalAct && originalAct.name === editedAct.name) {
+              // Same activity — restore full original data, keep any journal edits
+              return {
+                ...originalAct,
+                ...(editedAct.journalDone !== undefined ? {
+                  journalDone: editedAct.journalDone,
+                  journalNote: editedAct.journalNote,
+                  journalSpend: editedAct.journalSpend,
+                  journalRating: editedAct.journalRating,
+                } : {})
+              }
+            }
+
+            // New activity added by AI — use as-is (it has full fields from the prompt)
+            return editedAct
+          })
+        }
       })
     }
 
-    let groqRes = await fetchGroqAgent("llama-3.3-70b-versatile")
-    
-    // Model Cascade: catch ALL failures, not just 429
-    if (!groqRes.ok) {
-      console.warn(`Agent Groq 70B Failed (${groqRes.status}). Falling back to Mixtral 8x7b...`)
-      groqRes = await fetchGroqAgent("mixtral-8x7b-32768")
-    }
-
-    const groqData = await groqRes.json()
-
-    if (!groqRes.ok) {
-      return NextResponse.json({ error: "Failed to generate AI response", details: groqData }, { status: groqRes.status })
-    }
-
-    try {
-      let rawContent = groqData.choices[0].message.content
-      // Intelligently strip markdown if Mixtral adds it (e.g. ```json ... ```)
-      rawContent = rawContent.replace(/^```json\s*/, "")
-      rawContent = rawContent.replace(/```\s*$/, "")
-      
-      const updatedPlan = JSON.parse(rawContent)
-      return NextResponse.json({ plan: updatedPlan })
-    } catch (parseErr: any) {
-      console.error("Agent JSON Parse Failed:", parseErr.message)
-      return NextResponse.json({ error: "AI returned invalid JSON format" }, { status: 500 })
-    }
+    console.log(`✅ Agent succeeded with provider: ${provider}`)
+    return NextResponse.json({ plan: mergedPlan })
 
   } catch (error: any) {
     console.error("Agent API Error:", error)

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { callAI, parseAIJson } from '@/lib/ai'
 
 // In-memory cache for ultra-fast subsequent loads
 const METRO_CACHE = new Map<string, any>()
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     try {
       const overpassQuery = `
         [out:json][timeout:12];
-        area["name"~"${destination}","i"]["admin_level"~"[2-6]"]->.searchArea;
+        area["name"~"${destination}","i"]["admin_level"~"[2-6]"]->. searchArea;
         (
           node["railway"="station"]["station"="subway"](area.searchArea);
           node["railway"="station"]["network"~"metro","i"](area.searchArea);
@@ -90,13 +91,9 @@ export async function POST(request: Request) {
     }
 
     // OPTION 2: AI names → Nominatim geocoding (if Overpass returned nothing)
-    // Critical: We ask AI for NAMES ONLY, then geocode via Nominatim for accurate coords.
-    // AI coordinates from memory are unreliable and can land in the ocean!
+    // Uses shared callAI() with Groq→Gemini cascade
     if (stations.length === 0) {
-      const groqKey = process.env.GROQ_API_KEY
-      if (groqKey) {
-        try {
-          const prompt = `List ALL metro/subway station names in ${destination}, India.
+      const prompt = `List ALL metro/subway station names in ${destination}, India.
 If ${destination} does NOT have a metro system, return hasMetro: false.
 
 IMPORTANT: Do NOT include latitude/longitude coordinates. Only provide station names and metro line names.
@@ -110,64 +107,40 @@ Return ONLY valid JSON:
   ]
 }`
 
-          const fetchGroqMetro = async (modelName: string) => {
-            return await fetch("https://api.groq.com/openai/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${groqKey}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model: modelName,
-                messages: [
-                  { role: "system", content: "You are an Indian public transport expert. Respond ONLY with valid JSON." },
-                  { role: "user", content: prompt }
-                ],
-                response_format: { type: "json_object" },
-                temperature: 0.1,
-                max_tokens: 2000,
+      const { content, provider } = await callAI({
+        prompt,
+        systemPrompt: 'You are an Indian public transport expert. Respond ONLY with valid JSON.',
+        temperature: 0.1,
+        maxTokens: 2000,
+      })
+
+      if (provider !== 'none' && content) {
+        const parsed = parseAIJson(content)
+
+        if (parsed?.hasMetro && parsed.stations?.length > 0) {
+          console.log(`AI found ${parsed.stations.length} station names. Geocoding each via Nominatim...`)
+
+          // Geocode each station name one by one with a 1100ms delay
+          // to respect Nominatim's 1 request/second rate limit
+          const geocodedStations: any[] = []
+          for (let i = 0; i < parsed.stations.length; i++) {
+            const s = parsed.stations[i]
+            const coords = await geocodeStation(s.name, destination)
+            if (coords) {
+              geocodedStations.push({
+                name: s.name,
+                line: s.line || "Metro",
+                lat: coords.lat,
+                lng: coords.lng,
               })
-            })
-          }
-
-          let res = await fetchGroqMetro("llama-3.3-70b-versatile")
-          if (!res.ok) {
-            console.warn(`Metro Groq 70B Failed (${res.status}). Falling back to 8B...`)
-            res = await fetchGroqMetro("llama-3.1-8b-instant")
-          }
-
-          const groqData = await res.json()
-          if (res.ok && groqData.choices?.[0]?.message?.content) {
-            const parsed = JSON.parse(groqData.choices[0].message.content)
-
-            if (parsed.hasMetro && parsed.stations?.length > 0) {
-              console.log(`AI found ${parsed.stations.length} station names. Geocoding each via Nominatim...`)
-
-              // Geocode each station name one by one with a 350ms delay
-              // to respect Nominatim's 1 request/second rate limit
-              const geocodedStations: any[] = []
-              for (let i = 0; i < parsed.stations.length; i++) {
-                const s = parsed.stations[i]
-                const coords = await geocodeStation(s.name, destination)
-                if (coords) {
-                  geocodedStations.push({
-                    name: s.name,
-                    line: s.line || "Metro",
-                    lat: coords.lat,
-                    lng: coords.lng,
-                  })
-                } else {
-                  console.warn(`Could not geocode station: ${s.name} — skipping`)
-                }
-                  await new Promise(r => setTimeout(r, 1100))
-              }
-
-              stations = geocodedStations
-              console.log(`Geocoded ${stations.length} of ${parsed.stations.length} stations successfully`)
+            } else {
+              console.warn(`Could not geocode station: ${s.name} — skipping`)
             }
+              await new Promise(r => setTimeout(r, 1100))
           }
-        } catch (err: any) {
-          console.warn("Groq metro error:", err.message)
+
+          stations = geocodedStations
+          console.log(`Geocoded ${stations.length} of ${parsed.stations.length} stations successfully`)
         }
       }
     }

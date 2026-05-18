@@ -1,9 +1,28 @@
 import { NextResponse } from 'next/server'
+import { callAI, parseAIJson } from '@/lib/ai'
+import { EMERGENCY_DB, EMERGENCY_NUMBERS } from '@/config/emergency-data'
 
 export async function POST(request: Request) {
   try {
     const { destination } = await request.json()
+    const cityKey = destination?.toLowerCase().split(',')[0].trim().replace(/\s+/g, '') || ''
 
+    // 1. Check static DB first (verified, instant, free)
+    // Try exact match, then try common aliases
+    const staticData = EMERGENCY_DB[cityKey] 
+      || EMERGENCY_DB[cityKey.replace(/\s/g, '')] 
+      || null
+
+    if (staticData) {
+      return NextResponse.json({
+        hospitals: staticData,
+        emergencyNumbers: EMERGENCY_NUMBERS,
+        source: 'curated',
+        destination,
+      })
+    }
+
+    // 2. AI fallback for cities not in static DB
     const prompt = `You are a local travel safety expert for India.
 A traveler is visiting ${destination}, India.
 
@@ -22,42 +41,42 @@ Return ONLY a valid JSON object with this exact structure:
   ]
 }`
 
-    const groqKey = process.env.GROQ_API_KEY
-    const fetchGroq = async (modelName: string) => {
-      return await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${groqKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: modelName,
-          messages: [
-            { role: "system", content: "You are a factual medical facility locator for India. You respond ONLY with valid JSON. Only include hospitals you are certain exist. Never invent names." },
-            { role: "user", content: prompt }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.1, // Very low temperature for factual accuracy
-          max_tokens: 800,
+    const { content, provider } = await callAI({
+      prompt,
+      systemPrompt: 'You are a factual medical facility locator for India. You respond ONLY with valid JSON. Only include hospitals you are certain exist. Never invent names.',
+      temperature: 0.1,
+      maxTokens: 800,
+    })
+
+    if (provider !== 'none' && content) {
+      const parsed = parseAIJson(content)
+      if (parsed) {
+        return NextResponse.json({
+          ...parsed,
+          emergencyNumbers: EMERGENCY_NUMBERS,
+          source: 'ai',
+          destination,
         })
-      })
+      }
     }
 
-    let groqRes = await fetchGroq("llama-3.3-70b-versatile")
-    if (!groqRes.ok) {
-      console.warn(`Groq 70B Failed (Status ${groqRes.status}). Falling back to Llama 3.1 8B...`)
-      groqRes = await fetchGroq("llama-3.1-8b-instant")
-    }
-
-    const groqData = await groqRes.json()
-    if (!groqRes.ok) throw new Error("Failed to fetch hospital data from Groq")
-
-    const rawContent = groqData.choices[0].message.content
-    const parsedData = JSON.parse(rawContent)
-
-    return NextResponse.json(parsedData)
+    // 3. Ultimate fallback — always return universal emergency numbers
+    return NextResponse.json({
+      hospitals: [
+        { name: "Nearest District Hospital", address: `City center, ${destination}`, phone: "108 (Ambulance)" }
+      ],
+      emergencyNumbers: EMERGENCY_NUMBERS,
+      source: 'fallback',
+      destination,
+    })
   } catch (error: any) {
     console.error("Emergency API Error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({
+      hospitals: [
+        { name: "Emergency Services", address: "Dial 112 for help", phone: "112" }
+      ],
+      emergencyNumbers: EMERGENCY_NUMBERS,
+      source: 'fallback',
+    })
   }
 }
