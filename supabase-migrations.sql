@@ -96,6 +96,11 @@ CREATE TABLE IF NOT EXISTS trips (
 ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
 
 -- Policies for trips
+DROP POLICY IF EXISTS "Users can view their own trips" ON trips;
+DROP POLICY IF EXISTS "Users can insert their own trips" ON trips;
+DROP POLICY IF EXISTS "Users can update their own trips" ON trips;
+DROP POLICY IF EXISTS "Users can delete their own trips" ON trips;
+
 CREATE POLICY "Users can view their own trips" ON trips FOR SELECT USING (auth.uid() = user_id OR is_public = true);
 CREATE POLICY "Users can insert their own trips" ON trips FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own trips" ON trips FOR UPDATE USING (auth.uid() = user_id);
@@ -117,6 +122,10 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 
 -- Policies for user_preferences
+DROP POLICY IF EXISTS "Users can view their own preferences" ON user_preferences;
+DROP POLICY IF EXISTS "Users can insert their own preferences" ON user_preferences;
+DROP POLICY IF EXISTS "Users can update their own preferences" ON user_preferences;
+
 CREATE POLICY "Users can view their own preferences" ON user_preferences FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own preferences" ON user_preferences FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own preferences" ON user_preferences FOR UPDATE USING (auth.uid() = user_id);
