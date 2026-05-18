@@ -1,11 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 from core.models import TripRequest
 from graph.orchestrator import trip_graph
 from graph.state import TripState
 from vector_store.faiss_store import trip_store
-import json, asyncio
+import json, asyncio, os
 
 router = APIRouter()
 
@@ -24,7 +24,15 @@ NODE_STATUS_MESSAGES = {
 
 
 @router.post("/plan")
-async def plan_trip(req: TripRequest):
+async def plan_trip(
+    req: TripRequest,
+    x_internal_token: str | None = Header(None, alias="X-Internal-Token"),
+):
+    # Validate internal token when configured
+    # This prevents direct internet access to the expensive LLM pipeline.
+    expected_token = os.environ.get("INTERNAL_API_TOKEN", "")
+    if expected_token and x_internal_token != expected_token:
+        raise HTTPException(status_code=403, detail="Forbidden")
     # Check vector store cache first
     days = (
         (lambda a, b: abs((

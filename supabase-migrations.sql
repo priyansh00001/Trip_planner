@@ -70,6 +70,19 @@ CREATE TABLE IF NOT EXISTS ai_cache (
 CREATE INDEX idx_ai_cache_key ON ai_cache(cache_key);
 CREATE INDEX idx_ai_cache_route ON ai_cache(route, destination);
 
+-- Enable RLS for cache tables
+ALTER TABLE places_cache ENABLE ROW LEVEL SECURITY;
+ALTER TABLE photo_cache ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stays_cache ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_cache ENABLE ROW LEVEL SECURITY;
+
+-- Allow all operations for anon/authenticated roles temporarily (since backend uses anon key)
+-- Note: Replace with restrictive service_role policies before V2!
+CREATE POLICY "Allow public read/write places_cache" ON places_cache FOR ALL USING (true);
+CREATE POLICY "Allow public read/write photo_cache" ON photo_cache FOR ALL USING (true);
+CREATE POLICY "Allow public read/write stays_cache" ON stays_cache FOR ALL USING (true);
+CREATE POLICY "Allow public read/write ai_cache" ON ai_cache FOR ALL USING (true);
+
 -- ============================================
 -- 5. Trips & User Preferences Tables
 -- ============================================

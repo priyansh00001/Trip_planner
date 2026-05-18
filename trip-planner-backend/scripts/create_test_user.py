@@ -19,8 +19,12 @@ def create_test_user():
     print(f"Connecting to Supabase at: {url}")
     supabase = create_client(url, key)
 
-    email = "dubeypriyansh12321@gmail.com"
-    password = "asdf123"
+    email = os.getenv("TEST_USER_EMAIL")
+    password = os.getenv("TEST_USER_PASSWORD")
+
+    if not email or not password:
+        print("Error: TEST_USER_EMAIL and TEST_USER_PASSWORD must be set in your .env file.")
+        sys.exit(1)
 
     print(f"Attempting to create and auto-confirm test user: {email}...")
 

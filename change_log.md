@@ -82,7 +82,7 @@ This document contains a comprehensive record of all changes, structural refacto
   **Result**: `5 passed, 3 warnings` (Clean Exit Code 0).
 - **Consolidated Idempotent Migrations Execution**: Executed successfully on Supabase, establishing clean `trips` and `user_preferences` schemas with correct constraints and policies.
 - **End-to-End Browser Integration Testing**:
-  - Run with Test User: `archnatushar18@gmail.com` / `Pass123#` (Tushar Archna) on local port `3000` (Next.js Turbopack) & port `8000` (FastAPI).
+  - Run with Test User: `[redacted — see .env.example for credential policy]` (Tushar Archna) on local port `3000` (Next.js Turbopack) & port `8000` (FastAPI).
   - Selected Hotel: "Arya Niwas".
   - Selected Places: "Hawa Mahal", "Jal Mahal", and "Sawai Jai Singh Statue".
   - **Dynamic SSE Stream Processing**: The generator screen dynamically consumed and displayed FastAPI orchestrator logs and successfully streamed the custom places whitelisted Day-by-Day RAG itinerary, auto-saving it back to Supabase.
@@ -128,7 +128,7 @@ This document contains a comprehensive record of all changes, structural refacto
 ## 🏁 Verification & Testing Status (E2E Integration)
 
 - **End-to-End Browser Integration Testing**:
-  - Run with Test User: `archnatushar18@gmail.com` / `Pass123#` on local port `3000` (Next.js Turbopack) & port `8000` (FastAPI).
+  - Run with Test User: `[redacted — credentials stored in .env only]` on local port `3000` (Next.js Turbopack) & port `8000` (FastAPI).
   - Selected Homestay: "Sunder Palace Guest House".
   - Selected Custom Places: "Hawa Mahal" and "Amer Fort".
   - **Auth Migration Flow**: On click "Continue", the premium AuthModal pops up correctly, prompts for login, migrates the local cached state to Supabase, and redirects to `/generate/[newTripId]`.

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { callAI, parseAIJson } from '@/lib/ai'
+import { rateLimit } from '@/lib/rate-limit'
 
 /**
  * /api/places/search
@@ -9,6 +10,15 @@ import { callAI, parseAIJson } from '@/lib/ai'
  * Falls back to AI if the city is not yet scraped.
  */
 export async function GET(request: Request) {
+  // Rate limit: 20 place-search calls per IP per minute
+  const { ok, retryAfter } = rateLimit(request, { limit: 20, windowMs: 60 * 1000 })
+  if (!ok) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const city = searchParams.get('city') || ''
   const category = searchParams.get('category') || 'landmarks'

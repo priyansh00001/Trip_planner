@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
+  // Rate limit: full AI itinerary is expensive — 5 per IP per 5 minutes
+  const { ok, retryAfter } = rateLimit(request, { limit: 5, windowMs: 5 * 60 * 1000 })
+  if (!ok) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please slow down and try again shortly.' },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+    )
+  }
+
   try {
     const tripData = await request.json()
     const { destination, duration_days, budget_range, preference, confirmed_stay, selected_places } = tripData
@@ -20,9 +30,13 @@ export async function POST(request: Request) {
     const originCity = tripData.originCity || "DEL"; // Default IATA for MVP
 
     // POST directly to our FastAPI backend's SSE /api/plan endpoint
+    const internalToken = process.env.INTERNAL_API_TOKEN ?? ''
     const upstream = await fetch(`${BACKEND}/api/plan`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(internalToken ? { "X-Internal-Token": internalToken } : {}),
+      },
       body: JSON.stringify({
         destination: destination,
         start_date: start_date_format(startDate),

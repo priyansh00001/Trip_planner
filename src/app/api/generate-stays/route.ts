@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server'
 import { callAI, parseAIJson } from '@/lib/ai'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
+  // Rate limit: 8 stay-generation calls per IP per 2 minutes
+  const { ok, retryAfter } = rateLimit(request, { limit: 8, windowMs: 2 * 60 * 1000 })
+  if (!ok) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+    )
+  }
+
   try {
     const tripData = await request.json()
     const { destination, budget_range, preference } = tripData
