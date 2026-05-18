@@ -34,15 +34,26 @@ export default function GenerateStaysPage() {
       if (!params || !params.tripId) return
 
       try {
-        const supabase = createClient()
+        let tripData: any = null
 
-        const { data: tripData, error: tripError } = await supabase
-          .from('trips')
-          .select('*')
-          .eq('id', params.tripId)
-          .single()
+        if (params.tripId === "anonymous") {
+          const stored = localStorage.getItem("anonymous_trip")
+          if (!stored) {
+            router.push("/trip-input")
+            return
+          }
+          tripData = JSON.parse(stored)
+        } else {
+          const supabase = createClient()
+          const { data, error: tripError } = await supabase
+            .from('trips')
+            .select('*')
+            .eq('id', params.tripId)
+            .single()
 
-        if (tripError || !tripData) throw new Error("Could not find trip details.")
+          if (tripError || !data) throw new Error("Could not find trip details.")
+          tripData = data
+        }
 
         // Call Phase 1 API: generate stays only
         const res = await fetch("/api/generate-stays", {
@@ -54,19 +65,28 @@ export default function GenerateStaysPage() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || "Failed to generate stay options")
 
-        // Save stays to plan_data and update status
-        const { error: updateError } = await supabase
-          .from('trips')
-          .update({
+        if (params.tripId === "anonymous") {
+          // Guest path: Save stays in localStorage
+          localStorage.setItem("anonymous_trip", JSON.stringify({
+            ...tripData,
             plan_data: { stays: data.stays, destination: tripData.destination },
             status: 'selecting_stay'
-          })
-          .eq('id', params.tripId)
+          }))
+          router.push(`/select-stay/anonymous`)
+        } else {
+          const supabase = createClient()
+          // Save stays to plan_data and update status
+          const { error: updateError } = await supabase
+            .from('trips')
+            .update({
+              plan_data: { stays: data.stays, destination: tripData.destination },
+              status: 'selecting_stay'
+            })
+            .eq('id', params.tripId)
 
-        if (updateError) throw new Error("Failed to save stays to database.")
-
-        // Redirect to the stay selection page
-        router.push(`/select-stay/${params.tripId}`)
+          if (updateError) throw new Error("Failed to save stays to database.")
+          router.push(`/select-stay/${params.tripId}`)
+        }
 
       } catch (err: any) {
         console.error(err)

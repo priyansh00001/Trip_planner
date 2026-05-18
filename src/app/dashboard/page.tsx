@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Plus, Map, Plane, Compass, Star, Trash2, Camera, CheckCircle2, User } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { TripDebriefModal } from "@/components/TripDebriefModal"
 
 export default function DashboardPage() {
+  const router = useRouter()
   const [trips, setTrips] = useState<any[]>([])
   const [userName, setUserName] = useState("Traveler")
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -46,6 +48,38 @@ export default function DashboardPage() {
       }
 
       if (user) {
+        // Intercept and migrate any pending guest/anonymous trip planning data
+        const anonTripStr = localStorage.getItem("anonymous_trip")
+        if (anonTripStr) {
+          try {
+            const anonTrip = JSON.parse(anonTripStr)
+            
+            // Only migrate if we have selected stays and selected places
+            const { data: newTrip, error: insertError } = await supabase
+              .from("trips")
+              .insert({
+                user_id: user.id,
+                destination: anonTrip.destination,
+                duration_days: anonTrip.duration_days,
+                budget_range: String(anonTrip.budget_range),
+                preference: anonTrip.preference || "No Preference",
+                status: "generating_itinerary",
+                start_date: anonTrip.start_date || new Date().toISOString().split("T")[0],
+                plan_data: anonTrip.plan_data || {},
+              })
+              .select()
+              .single()
+
+            if (!insertError && newTrip) {
+              localStorage.removeItem("anonymous_trip")
+              router.push(`/generate/${newTrip.id}`)
+              return
+            }
+          } catch (e) {
+            console.error("Failed to migrate anonymous trip:", e)
+          }
+        }
+
         const name = user.user_metadata?.full_name || user.email?.split('@')[0] || "Traveler"
         setUserName(name)
 

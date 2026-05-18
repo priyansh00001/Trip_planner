@@ -49,27 +49,39 @@ export default function SelectStayPage() {
   useEffect(() => {
     async function loadStays() {
       if (!params?.tripId) return
-      const supabase = createClient()
 
-      const { data, error } = await supabase
-        .from('trips')
-        .select('*')
-        .eq('id', params.tripId)
-        .single()
-
-      if (error || !data) {
-        setError("Could not load stay options. Please try again.")
+      if (params.tripId === "anonymous") {
+        const stored = localStorage.getItem("anonymous_trip")
+        if (!stored) {
+          router.push("/trip-input")
+          return
+        }
+        const data = JSON.parse(stored)
+        setTrip(data)
+        setStays(data.plan_data?.stays || [])
         setLoading(false)
-        return
-      }
+      } else {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('id', params.tripId)
+          .single()
 
-      setTrip(data)
-      setStays(data.plan_data?.stays || [])
-      setLoading(false)
+        if (error || !data) {
+          setError("Could not load stay options. Please try again.")
+          setLoading(false)
+          return
+        }
+
+        setTrip(data)
+        setStays(data.plan_data?.stays || [])
+        setLoading(false)
+      }
     }
 
     loadStays()
-  }, [params])
+  }, [params, router])
 
   const handleConfirmStay = async () => {
     if (!selectedId || !trip) return
@@ -78,20 +90,33 @@ export default function SelectStayPage() {
     const chosenStay = stays.find((s: any) => s.id === selectedId)
     if (!chosenStay) return
 
-    const supabase = createClient()
-    await supabase
-      .from('trips')
-      .update({
+    if (params?.tripId === "anonymous") {
+      // Guest path: Save stay in localStorage
+      localStorage.setItem("anonymous_trip", JSON.stringify({
+        ...trip,
         plan_data: {
           ...trip.plan_data,
           confirmed_stay: chosenStay,
         },
-        status: 'generating_itinerary',
-      })
-      .eq('id', trip.id)
+        status: 'generating_itinerary'
+      }))
+      router.push(`/pick-places/anonymous`)
+    } else {
+      const supabase = createClient()
+      await supabase
+        .from('trips')
+        .update({
+          plan_data: {
+            ...trip.plan_data,
+            confirmed_stay: chosenStay,
+          },
+          status: 'generating_itinerary',
+        })
+        .eq('id', trip.id)
 
-    // Route to the Pick Places page (new step in flow)
-    router.push(`/pick-places/${trip.id}`)
+      // Route to the Pick Places page (new step in flow)
+      router.push(`/pick-places/${trip.id}`)
+    }
   }
 
   if (loading) {

@@ -65,8 +65,15 @@ export default function TripInputPage() {
       // Redirect to the Phase 1 AI generation screen (Stays) passing the new trip ID
       router.push(`/generate-stays/${data.id}`)
     } else {
-      setError("You must be logged in to create a trip.")
-      setIsSubmitting(false)
+      // Guest path: Save inputs to local storage and route to generate-stays with ID "anonymous"
+      localStorage.setItem("anonymous_trip", JSON.stringify({
+        destination,
+        duration_days: days,
+        budget_range: String(budget),
+        preference: accommodation,
+        start_date: journeyDate
+      }))
+      router.push(`/generate-stays/anonymous`)
     }
   }
 

@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS trips (
     )),
     start_date DATE DEFAULT CURRENT_DATE,
     plan_data JSONB,
+    review_rating INT,
+    review_text TEXT,
     is_public BOOLEAN DEFAULT false
 );
 

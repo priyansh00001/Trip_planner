@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
+import AuthModal from "@/components/AuthModal"
 
 // ─── Category Config ─────────────────────────────────────
 const CATEGORIES = [
@@ -282,6 +283,7 @@ export default function PickPlacesPage() {
   const [trip, setTrip] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
   const [activeCategory, setActiveCategory] = useState("landmarks")
   const [placesCache, setPlacesCache] = useState<Record<string, Place[]>>({})
@@ -295,23 +297,35 @@ export default function PickPlacesPage() {
   useEffect(() => {
     async function loadTrip() {
       if (!params?.tripId) return
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('trips')
-        .select('*')
-        .eq('id', params.tripId)
-        .single()
 
-      if (error || !data) {
-        setError("Could not load trip data.")
+      if (params.tripId === "anonymous") {
+        const stored = localStorage.getItem("anonymous_trip")
+        if (!stored) {
+          router.push("/trip-input")
+          return
+        }
+        const parsed = JSON.parse(stored)
+        setTrip({ ...parsed, id: "anonymous" })
         setLoading(false)
-        return
+      } else {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('id', params.tripId)
+          .single()
+
+        if (error || !data) {
+          setError("Could not load trip data.")
+          setLoading(false)
+          return
+        }
+        setTrip(data)
+        setLoading(false)
       }
-      setTrip(data)
-      setLoading(false)
     }
     loadTrip()
-  }, [params])
+  }, [params, router])
 
   // Fetch places for active category
   const fetchPlaces = useCallback(async (category: string) => {
@@ -353,6 +367,12 @@ export default function PickPlacesPage() {
   const handleContinue = async () => {
     if (!trip?.id || selectedPlaces.length === 0) return
     setContinuing(true)
+
+    if (params?.tripId === "anonymous") {
+      setIsAuthModalOpen(true)
+      setContinuing(false)
+      return
+    }
 
     const supabase = createClient()
     await supabase
@@ -532,6 +552,16 @@ export default function PickPlacesPage() {
             isSelected={isSelected(detailPlace)}
             onToggle={() => togglePlace(detailPlace)}
             onClose={() => setDetailPlace(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isAuthModalOpen && (
+          <AuthModal
+            isOpen={isAuthModalOpen}
+            onClose={() => setIsAuthModalOpen(false)}
+            selectedPlaces={selectedPlaces}
           />
         )}
       </AnimatePresence>

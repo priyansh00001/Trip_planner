@@ -43,7 +43,7 @@ export default function Home() {
                 Tell us where you want to go, your budget, and how many days. Our AI agent will build a complete itinerary, find the best stays, and plot it all on an interactive map.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/login">
+                <Link href="/trip-input">
                   <Button size="lg" className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:opacity-90">
                     <Plane className="h-4 w-4" />
                     Start Planning for Free
