@@ -12,6 +12,7 @@ This document contains a comprehensive record of all changes, structural refacto
 4. **Whitelisting Custom Selections**: Configured the LangGraph hallucination validator to respect and whitelist user-selected places, guaranteeing custom picks are preserved in the final itinerary.
 5. **Passed Backend Test Suite**: Verified that all backend components pass automated tests cleanly.
 6. **Unified Monorepo Environment**: Created a single, unified `.env` file in the workspace root directory and configured the Python backend's `BaseSettings` to load it dynamically (`../.env`) while ignoring frontend-specific variables, eliminating configuration redundancy.
+7. **Consolidated Idempotent Supabase Migrations**: Consolidated both RAG cache tables and frontend user tables into a single schema script (`supabase-migrations.sql`) with robust `DROP POLICY IF EXISTS` safeguards and fully aligned `status` check constraints, preventing database-level transition blockages.
 
 ---
 
@@ -60,6 +61,14 @@ This document contains a comprehensive record of all changes, structural refacto
 #### `core/config.py`
 - **Action**: Load environment variables from workspace root `.env`.
 - **Details**: Configured `Config` class to search both `".env"` and `../.env` and enabled `extra = "ignore"` to gracefully overlook frontend-only variables (like `NEXT_PUBLIC_SUPABASE_URL`), enabling a unified configuration structure.
+
+#### `supabase-migrations.sql`
+- **Action**: Consolidate database tables and add robust safeguards.
+- **Details**:
+  - Combined caching tables (`places_cache`, `photo_cache`, `stays_cache`, `ai_cache`) with frontend tables (`trips`, `user_preferences`).
+  - Added missing `start_date DATE` column to the `trips` schema.
+  - Aligned the `status` CHECK constraint to include all frontend states (`generating_stays`, `selecting_stay`, `generating_itinerary`, `completed_and_reviewed`, etc.) to prevent insert crashes.
+  - Added `DROP POLICY IF EXISTS` guards to prevent migration failures if policies already exist.
 
 ---
 
