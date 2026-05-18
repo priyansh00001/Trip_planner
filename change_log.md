@@ -79,12 +79,14 @@ This document contains a comprehensive record of all changes, structural refacto
   ```bash
   pytest tests/test_smart_scraper.py
   ```
-- **Result**: `5 passed, 3 warnings in 43.91s` with exit code `0`.
-- Staged and committed all changes cleanly:
-  ```bash
-  Branch: backend
-  Latest Commit: feat: align itinerary schemas, whitelist selected places, and link discovery page to FastAPI scraped destinations
-  ```
+  **Result**: `5 passed, 3 warnings` (Clean Exit Code 0).
+- **Consolidated Idempotent Migrations Execution**: Executed successfully on Supabase, establishing clean `trips` and `user_preferences` schemas with correct constraints and policies.
+- **End-to-End Browser Integration Testing**:
+  - Run with Test User: `archnatushar18@gmail.com` / `Pass123#` (Tushar Archna) on local port `3000` (Next.js Turbopack) & port `8000` (FastAPI).
+  - Selected Hotel: "Arya Niwas".
+  - Selected Places: "Hawa Mahal", "Jal Mahal", and "Sawai Jai Singh Statue".
+  - **Dynamic SSE Stream Processing**: The generator screen dynamically consumed and displayed FastAPI orchestrator logs and successfully streamed the custom places whitelisted Day-by-Day RAG itinerary, auto-saving it back to Supabase.
+  - **Result**: **100% SUCCESS** - Clean redirect to timeline view displaying weather badges, beautiful lilac timeline actions, rating tags, and interactive trip tools.
 
 ---
 
