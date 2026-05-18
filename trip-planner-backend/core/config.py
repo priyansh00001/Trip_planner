@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     NEXT_JS_ORIGIN: str = "http://localhost:3000"
 
     class Config:
-        env_file = ".env"
+        env_file = (".env", "../.env")
+        extra = "ignore"
 
 settings = Settings()
