@@ -42,7 +42,7 @@ export default function MemoriesPage() {
     
     // Use getSession first to avoid network lock race conditions in Strict Mode
     const { data: { session } } = await supabase.auth.getSession()
-    let user = session?.user
+    let user: any = session?.user
 
     if (!user) {
       try {

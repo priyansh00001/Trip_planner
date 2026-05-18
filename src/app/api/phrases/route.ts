@@ -3,8 +3,10 @@ import { callAI, parseAIJson } from '@/lib/ai'
 import { CITY_LANGUAGE_MAP, PHRASES_DB } from '@/config/phrases-data'
 
 export async function POST(request: Request) {
+  let destination = ""
   try {
-    const { destination } = await request.json()
+    const body = await request.json()
+    destination = body.destination
 
     if (!destination) {
       return NextResponse.json({ error: "Destination is required" }, { status: 400 })

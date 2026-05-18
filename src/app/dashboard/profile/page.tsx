@@ -15,7 +15,7 @@ export default function DashboardProfilePage() {
       const supabase = createClient()
       
       const { data: { session } } = await supabase.auth.getSession()
-      let currentUser = session?.user
+      let currentUser: any = session?.user
 
       if (!currentUser) {
         try {
