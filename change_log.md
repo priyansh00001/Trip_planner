@@ -11,6 +11,7 @@ This document contains a comprehensive record of all changes, structural refacto
 3. **Interactive Places Selection & RAG Sync**: Connected the frontend's place-discovery component to actual TripAdvisor and Hostelworld databases, ensuring the UI searches authentic scraped data first before falling back to AI.
 4. **Whitelisting Custom Selections**: Configured the LangGraph hallucination validator to respect and whitelist user-selected places, guaranteeing custom picks are preserved in the final itinerary.
 5. **Passed Backend Test Suite**: Verified that all backend components pass automated tests cleanly.
+6. **Unified Monorepo Environment**: Created a single, unified `.env` file in the workspace root directory and configured the Python backend's `BaseSettings` to load it dynamically (`../.env`) while ignoring frontend-specific variables, eliminating configuration redundancy.
 
 ---
 
@@ -55,6 +56,10 @@ This document contains a comprehensive record of all changes, structural refacto
 #### `graph/nodes/validator_node.py`
 - **Action**: Failsafe whitelisting for custom selections.
 - **Details**: Modified the fuzzy-matching loop to read `selected_places` from the active request and automatically append them to `valid_places` so the hallucination validator never removes user-chosen places.
+
+#### `core/config.py`
+- **Action**: Load environment variables from workspace root `.env`.
+- **Details**: Configured `Config` class to search both `".env"` and `../.env` and enabled `extra = "ignore"` to gracefully overlook frontend-only variables (like `NEXT_PUBLIC_SUPABASE_URL`), enabling a unified configuration structure.
 
 ---
 
