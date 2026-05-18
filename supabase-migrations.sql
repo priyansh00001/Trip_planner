@@ -69,3 +69,55 @@ CREATE TABLE IF NOT EXISTS ai_cache (
 
 CREATE INDEX idx_ai_cache_key ON ai_cache(cache_key);
 CREATE INDEX idx_ai_cache_route ON ai_cache(route, destination);
+
+-- ============================================
+-- 5. Trips & User Preferences Tables
+-- ============================================
+
+-- Create trips table
+CREATE TABLE IF NOT EXISTS trips (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    destination TEXT NOT NULL,
+    duration_days INTEGER NOT NULL,
+    budget_range TEXT NOT NULL,
+    preference TEXT,
+    status TEXT DEFAULT 'generating_stays' CHECK (status IN (
+        'generating', 'generating_stays', 'selecting_stay', 
+        'generating_itinerary', 'completed', 'completed_and_reviewed', 'failed'
+    )),
+    start_date DATE DEFAULT CURRENT_DATE,
+    plan_data JSONB,
+    is_public BOOLEAN DEFAULT false
+);
+
+-- Enable RLS
+ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
+
+-- Policies for trips
+CREATE POLICY "Users can view their own trips" ON trips FOR SELECT USING (auth.uid() = user_id OR is_public = true);
+CREATE POLICY "Users can insert their own trips" ON trips FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own trips" ON trips FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own trips" ON trips FOR DELETE USING (auth.uid() = user_id);
+
+-- Create user_preferences table
+CREATE TABLE IF NOT EXISTS user_preferences (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    travel_style TEXT,
+    pace TEXT,
+    food_pref TEXT,
+    budget_tier TEXT,
+    UNIQUE(user_id)
+);
+
+-- Enable RLS
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+
+-- Policies for user_preferences
+CREATE POLICY "Users can view their own preferences" ON user_preferences FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own preferences" ON user_preferences FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own preferences" ON user_preferences FOR UPDATE USING (auth.uid() = user_id);
+
