@@ -3,17 +3,16 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Building2, Search, Star, MapPin, Loader2, AlertCircle } from "lucide-react"
+import { Loader2, AlertCircle } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
 
 const loadingSteps = [
-  { text: "Searching for the best stays...", icon: Search, color: "text-blue-500" },
-  { text: "Comparing hostels & hotels...", icon: Building2, color: "text-emerald-500" },
-  { text: "Checking ratings & reviews...", icon: Star, color: "text-amber-500" },
-  { text: "Finding stays near top attractions...", icon: MapPin, color: "text-rose-500" },
-  { text: "Preparing your options...", icon: Building2, color: "text-indigo-500" },
+  "Searching for the best stays",
+  "Comparing hostels & hotels",
+  "Checking ratings & reviews",
+  "Finding stays near top attractions",
+  "Preparing your options",
 ]
 
 export default function GenerateStaysPage() {
@@ -38,24 +37,16 @@ export default function GenerateStaysPage() {
 
         if (params.tripId === "anonymous") {
           const stored = localStorage.getItem("anonymous_trip")
-          if (!stored) {
-            router.push("/trip-input")
-            return
-          }
+          if (!stored) { router.push("/trip-input"); return }
           tripData = JSON.parse(stored)
         } else {
           const supabase = createClient()
           const { data, error: tripError } = await supabase
-            .from('trips')
-            .select('*')
-            .eq('id', params.tripId)
-            .single()
-
+            .from('trips').select('*').eq('id', params.tripId).single()
           if (tripError || !data) throw new Error("Could not find trip details.")
           tripData = data
         }
 
-        // Call Phase 1 API: generate stays only
         const res = await fetch("/api/generate-stays", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -66,7 +57,6 @@ export default function GenerateStaysPage() {
         if (!res.ok) throw new Error(data.error || "Failed to generate stay options")
 
         if (params.tripId === "anonymous") {
-          // Guest path: Save stays in localStorage
           localStorage.setItem("anonymous_trip", JSON.stringify({
             ...tripData,
             plan_data: { stays: data.stays, destination: tripData.destination },
@@ -75,7 +65,6 @@ export default function GenerateStaysPage() {
           router.push(`/select-stay/anonymous`)
         } else {
           const supabase = createClient()
-          // Save stays to plan_data and update status
           const { error: updateError } = await supabase
             .from('trips')
             .update({
@@ -83,64 +72,73 @@ export default function GenerateStaysPage() {
               status: 'selecting_stay'
             })
             .eq('id', params.tripId)
-
           if (updateError) throw new Error("Failed to save stays to database.")
           router.push(`/select-stay/${params.tripId}`)
         }
-
       } catch (err: any) {
         console.error(err)
         setError(err.message)
       }
     }
-
     generateStays()
   }, [params, router])
 
-  const CurrentIcon = loadingSteps[currentStep].icon
-
   if (error) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-muted/30">
-        <div className="max-w-md text-center p-8 border rounded-xl bg-background shadow-lg">
-          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
-          <p className="text-muted-foreground mb-6">{error}</p>
-          <Button onClick={() => router.push('/dashboard')}>Back to Dashboard</Button>
+      <div className="flex min-h-screen flex-col items-center justify-center p-6">
+        <div className="max-w-md text-center p-10 border border-border/50">
+          <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-4" />
+          <h2 className="font-serif text-2xl mb-2">Something went wrong</h2>
+          <p className="text-sm text-muted-foreground mb-6">{error}</p>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="text-[10px] uppercase tracking-[0.2em] font-medium px-6 py-3 bg-foreground text-background"
+          >
+            Back to Dashboard
+          </button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-muted/30 overflow-hidden relative">
-      {/* Background Pulse */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl animate-pulse" />
+    <div className="flex min-h-screen flex-col items-center justify-center p-6 overflow-hidden relative">
+      {/* Ambient glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-[var(--gold)]/5 rounded-full blur-3xl" />
 
-      <div className="z-10 flex flex-col items-center text-center">
+      <div className="z-10 flex flex-col items-center text-center max-w-md">
+        {/* Spinner */}
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--gold)] mb-10" />
+
+        {/* Step text */}
         <AnimatePresence mode="wait">
-          <motion.div
+          <motion.p
             key={currentStep}
-            initial={{ opacity: 0, y: 20, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.8 }}
-            transition={{ duration: 0.5 }}
-            className="flex flex-col items-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.4 }}
+            className="font-serif text-2xl md:text-3xl tracking-tight text-foreground"
           >
-            <div className={`p-6 rounded-full bg-background shadow-xl mb-8 ${loadingSteps[currentStep].color} border`}>
-              <CurrentIcon className="h-16 w-16" strokeWidth={1.5} />
-            </div>
-
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4">
-              {loadingSteps[currentStep].text}
-            </h2>
-
-            <div className="flex items-center text-muted-foreground">
-              <Loader2 className="h-4 w-4 mr-2 animate-spin text-primary" />
-              <span>Finding the perfect basecamp...</span>
-            </div>
-          </motion.div>
+            {loadingSteps[currentStep]}
+          </motion.p>
         </AnimatePresence>
+
+        <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mt-6">
+          Finding the perfect basecamp
+        </p>
+
+        {/* Progress dots */}
+        <div className="flex gap-2 mt-8">
+          {loadingSteps.map((_, i) => (
+            <div
+              key={i}
+              className={`h-1 w-8 transition-all duration-500 ${
+                i <= currentStep ? 'bg-[var(--gold)]' : 'bg-border/30'
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )

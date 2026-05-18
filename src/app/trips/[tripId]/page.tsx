@@ -48,19 +48,61 @@ const IconMap: Record<string, any> = {
   Coffee, Mountain, MapPin, Compass, Utensils, Camera, Bus, Train, Navigation, Building2
 }
 
-// Category color mapping for vibrant badges
+// Category styling - completely muted for Soft Luxury
 const CategoryColors: Record<string, string> = {
-  "Cafe": "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  "Restaurant": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-  "Beach": "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
-  "Temple": "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
-  "Museum": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  "Market": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-  "Trek": "bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-300",
-  "Viewpoint": "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300",
-  "Club": "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/30 dark:text-fuchsia-300",
-  "Heritage": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  "Park": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  "Cafe": "border border-foreground/20 text-foreground/70",
+  "Restaurant": "border border-foreground/20 text-foreground/70",
+  "Beach": "border border-foreground/20 text-foreground/70",
+  "Temple": "border border-foreground/20 text-foreground/70",
+  "Museum": "border border-foreground/20 text-foreground/70",
+  "Market": "border border-foreground/20 text-foreground/70",
+  "Trek": "border border-foreground/20 text-foreground/70",
+  "Viewpoint": "border border-foreground/20 text-foreground/70",
+  "Club": "border border-foreground/20 text-foreground/70",
+  "Heritage": "border border-foreground/20 text-foreground/70",
+  "Park": "border border-foreground/20 text-foreground/70",
+}
+
+// Map of destinations to dynamic themes
+const themeMapping: Record<string, string[]> = {
+  ocean: ["goa", "maldives", "andaman", "lakshadweep", "phuket", "beach", "puducherry", "pondicherry", "varkala", "gokarna"],
+  desert: ["jaipur", "jaisalmer", "jodhpur", "rajasthan", "dubai", "leh", "ladakh", "bikaner", "pushkar"],
+  forest: ["kerala", "munnar", "wayanad", "coorg", "ooty", "manali", "shimla", "srinagar", "darjeeling", "meghalaya", "assam", "bali"],
+  heritage: ["delhi", "agra", "varanasi", "kolkata", "amritsar", "madurai", "mysore", "hampi", "khajuraho", "lucknow"]
+}
+
+function getDestinationTheme(destination: string) {
+  if (!destination) return "default"
+  const dest = destination.toLowerCase()
+  for (const [theme, keywords] of Object.entries(themeMapping)) {
+    if (keywords.some(keyword => dest.includes(keyword))) {
+      return theme
+    }
+  }
+  return "default"
+}
+
+// Map of popular destinations to gorgeous reliable images (Wikimedia Commons / Unsplash known good)
+const destinationImages: Record<string, string> = {
+  mumbai: 'https://images.pexels.com/photos/2260800/pexels-photo-2260800.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', // Mumbai Skyline / Gateway
+  delhi: 'https://images.pexels.com/photos/35255277/pexels-photo-35255277.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&dpr=2', // India Gate, New Delhi (verified)
+  goa: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?q=80&w=2000&auto=format&fit=crop', // Goa Beach
+  jaipur: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?q=80&w=2000&auto=format&fit=crop', // Jaipur Hawa Mahal
+  agra: 'https://images.pexels.com/photos/164336/pexels-photo-164336.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', // Taj Mahal
+  kerala: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?q=80&w=2000&auto=format&fit=crop', // Kerala Backwaters
+  varanasi: 'https://images.unsplash.com/photo-1561361513-2d000a50f0dc?q=80&w=2000&auto=format&fit=crop', // Varanasi
+  udaipur: 'https://images.unsplash.com/photo-1593010452654-e4f62edc4b69?q=80&w=2000&auto=format&fit=crop', // Udaipur
+  bangalore: 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?q=80&w=2000&auto=format&fit=crop', // Bangalore
+  default: 'https://images.unsplash.com/photo-1598890777032-bde835ba27c2?q=80&w=2000&auto=format&fit=crop' // Known good Unsplash fallback (Japanese Torii)
+}
+
+function getHeroImage(destination: string) {
+  if (!destination) return destinationImages.default
+  const dest = destination.toLowerCase()
+  for (const [key, url] of Object.entries(destinationImages)) {
+    if (dest.includes(key)) return url
+  }
+  return destinationImages.default
 }
 
 function StarRating({ rating }: { rating?: number }) {
@@ -222,26 +264,43 @@ export default function TripPlanPage() {
     }
   }
 
+  const supabase = createClient()
+
+  // Fetch trip data
   useEffect(() => {
-    async function loadTrip() {
-      if (!params || !params.tripId) return
+    async function fetchTrip() {
+      if (!params.tripId) return
 
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('trips')
-        .select('*')
-        .eq('id', params.tripId)
-        .single()
+      try {
+        const { data, error } = await supabase
+          .from("trips")
+          .select("*")
+          .eq("id", params.tripId)
+          .single()
 
-      if (data && data.plan_data) {
+        if (error) throw error
         setTrip(data)
         setNewDays(data.duration_days || 3)
         setNewBudget(parseInt(data.budget_range) || 10000)
+      } catch (err) {
+        console.error("Error fetching trip:", err)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
-    loadTrip()
-  }, [params])
+    fetchTrip()
+  }, [params.tripId, supabase])
+
+  // Inject Dynamic Theme
+  useEffect(() => {
+    if (trip?.plan_data?.destination) {
+      const theme = getDestinationTheme(trip.plan_data.destination)
+      if (theme !== "default") {
+        document.documentElement.setAttribute('data-theme', theme)
+      }
+      return () => document.documentElement.removeAttribute('data-theme')
+    }
+  }, [trip?.plan_data?.destination])
 
   if (loading) {
     return (
@@ -279,56 +338,76 @@ export default function TripPlanPage() {
   return (
     <div id="itinerary-content" className="min-h-screen bg-background pb-20">
 
-      {/* Hero Header Section */}
-      <div className="w-full bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 pt-16 pb-14 px-6 relative overflow-hidden">
-        {/* Decorative circles */}
-        <div className="absolute -top-20 -right-20 w-72 h-72 bg-white/5 rounded-full blur-2xl"/>
-        <div className="absolute -bottom-16 -left-16 w-56 h-56 bg-white/5 rounded-full blur-2xl"/>
+      {/* Cinematic Fade Hero Section */}
+      <div className="w-full relative overflow-hidden pt-32 pb-40 px-6">
+        <div 
+          className="absolute inset-0 z-0 pointer-events-none"
+          style={{
+            backgroundImage: `url('${getHeroImage(plan.destination)}')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundAttachment: 'fixed', // Parallax effect
+            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)',
+          }}
+        />
 
-        <div className="absolute top-4 left-4 z-10" data-html2canvas-ignore>
+        <div className="absolute top-6 left-6 z-10" data-html2canvas-ignore>
           <Link href="/dashboard">
-            <Button variant="outline" size="icon" className="bg-white/10 hover:bg-white/20 text-white border-white/20">
+            <Button variant="ghost" size="icon" className="text-foreground hover:bg-black/5 rounded-full">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
         </div>
 
-
-
-        <div className="max-w-4xl mx-auto flex flex-col items-center text-center mt-6 relative z-10">
-          <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium text-white mb-6 backdrop-blur-md">
-            <Sparkles className="h-4 w-4 mr-2" />
-            AI Generated Plan
-          </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">
+        <div className="max-w-4xl mx-auto flex flex-col items-center text-center relative z-10 mt-8">
+          <motion.span 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            className="text-[10px] sm:text-xs font-bold tracking-[0.4em] uppercase text-foreground mb-8 border-b border-foreground/30 pb-3"
+          >
+            Curated Journey
+          </motion.span>
+          <motion.h1 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="text-6xl sm:text-7xl md:text-8xl font-serif text-foreground mb-10 tracking-tighter drop-shadow-sm"
+          >
             {plan.tripTitle}
-          </h1>
+          </motion.h1>
 
           {/* Trip Meta Badges */}
-          <div className="flex flex-wrap justify-center gap-3 text-white/90 font-medium mt-2">
-            <div className="flex items-center bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
-              <MapPin className="h-4 w-4 mr-2" /> {plan.destination}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 0.5 }}
+            className="flex flex-wrap justify-center gap-10 text-foreground font-serif text-sm tracking-wider"
+          >
+            <div className="flex items-center">
+              <MapPin className="h-4 w-4 mr-2 opacity-50" /> {plan.destination}
             </div>
-            <div className="flex items-center bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
-              <Calendar className="h-4 w-4 mr-2" /> {trip.duration_days} Days
+            <div className="flex items-center">
+              <Calendar className="h-4 w-4 mr-2 opacity-50" /> {trip.duration_days} Days
             </div>
-            <div className="flex items-center bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
-              <Wallet className="h-4 w-4 mr-2" /> {plan.estimatedCost}
+            <div className="flex items-center">
+              <Wallet className="h-4 w-4 mr-2 opacity-50" /> {plan.estimatedCost}
             </div>
-          </div>
+          </motion.div>
 
           {/* Best Time to Visit */}
           {plan.bestTimeToVisit && (
-            <p className="text-white/60 text-sm mt-4 flex items-center">
-              <Clock className="h-3.5 w-3.5 mr-1.5" /> Best time to visit: {plan.bestTimeToVisit}
+            <p className="text-muted-foreground text-xs mt-6 flex items-center font-serif italic">
+              <Clock className="h-3 w-3 mr-1.5" /> Best time to visit: {plan.bestTimeToVisit}
             </p>
           )}
 
           {/* Highlights Chips */}
           {plan.highlights && plan.highlights.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-2 mt-6">
+            <div className="flex flex-wrap justify-center gap-3 mt-10">
               {plan.highlights.map((h: string, i: number) => (
-                <span key={i} className="text-xs bg-white/10 text-white/80 px-3 py-1 rounded-full border border-white/10 backdrop-blur-sm">
+                <span key={i} className="text-[10px] uppercase tracking-widest text-muted-foreground px-4 py-2 border border-border bg-transparent">
                   {h}
                 </span>
               ))}
@@ -341,17 +420,17 @@ export default function TripPlanPage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 mt-10">
 
         {/* Interactive Map View — hidden in print */}
-        <div className="mb-12 no-print">
-          <h2 className="text-xl font-bold mb-4 flex items-center text-primary">
-            <MapPin className="h-5 w-5 mr-2" /> Interactive Route Map
+        <div className="mb-16 no-print">
+          <h2 className="text-xl font-serif mb-6 flex items-center text-foreground">
+             Interactive Route Map
           </h2>
           <TripMap plan={plan} />
         </div>
 
         {/* Live Weather Widget — hidden in print */}
-        <div className="mb-10 no-print">
-          <h2 className="text-xl font-bold mb-4 flex items-center text-primary">
-            <span className="mr-2">🌤</span> Live Weather
+        <div className="mb-16 no-print">
+          <h2 className="text-xl font-serif mb-6 flex items-center text-foreground">
+             Live Weather
           </h2>
           {(() => {
             const lat = plan.recommendedStays?.[0]?.lat || plan.days?.[0]?.activities?.[0]?.lat
@@ -368,16 +447,16 @@ export default function TripPlanPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <h2 className="text-xl font-bold mb-4 flex items-center text-primary">
-              <Building2 className="h-5 w-5 mr-2" /> Your Confirmed Basecamp
+            <h2 className="text-xl font-serif mb-6 flex items-center text-foreground">
+              Your Confirmed Basecamp
             </h2>
-            <Card className="relative overflow-hidden border-2 border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-500/10 dark:to-purple-500/10 shadow-md">
-              <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-gradient-to-b from-indigo-500 to-purple-600" />
-              <CardContent className="p-5">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <Card className="relative overflow-hidden rounded-none border border-border bg-transparent shadow-none">
+              <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary/20" />
+              <CardContent className="p-6 sm:p-8">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
-                    <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1 block">
-                      ✅ Confirmed Stay · {plan.confirmed_stay.type}
+                    <span className="text-[10px] tracking-widest text-muted-foreground uppercase mb-2 block">
+                      Confirmed Stay · {plan.confirmed_stay.type}
                     </span>
                     <h3 className="font-bold text-xl leading-tight">{plan.confirmed_stay.name}</h3>
                     {plan.confirmed_stay.address && (
@@ -389,8 +468,8 @@ export default function TripPlanPage() {
                       <div className="mt-2"><StarRating rating={plan.confirmed_stay.rating} /></div>
                     )}
                   </div>
-                  <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
-                    <span className="text-lg font-extrabold text-indigo-600 dark:text-indigo-400">
+                  <div className="flex flex-col items-start sm:items-end gap-3 shrink-0">
+                    <span className="text-xl font-serif text-foreground">
                       {plan.confirmed_stay.price}
                     </span>
                     <a
@@ -398,8 +477,8 @@ export default function TripPlanPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
-                        Book Now <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                      <Button variant="outline" size="sm" className="rounded-none border-foreground hover:bg-foreground hover:text-background transition-colors text-xs tracking-widest uppercase">
+                        Book Now
                       </Button>
                     </a>
                   </div>
@@ -414,22 +493,21 @@ export default function TripPlanPage() {
           </motion.div>
         )}
 
-        {/* Weather Locked Banner — hidden in print */}
         {isWeatherLocked && (
           <motion.div 
-            className="mb-10 p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left shadow-sm no-print"
+            className="mb-12 p-6 border-b border-border flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left no-print"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
           >
-            <div className="h-12 w-12 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 mx-auto sm:mx-0">
-              <Lock className="h-6 w-6 text-amber-600 dark:text-amber-500" />
+            <div className="h-10 w-10 flex items-center justify-center shrink-0 mx-auto sm:mx-0 opacity-50">
+              <Lock className="h-6 w-6 text-muted-foreground" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-amber-700 dark:text-amber-500 mb-1">
-                Live Forecast Locked 🔒
+              <h3 className="text-sm tracking-widest uppercase text-foreground mb-2">
+                Live Forecast Locked
               </h3>
-              <p className="text-sm text-foreground/80 leading-relaxed text-left">
-                Meteorological data for your exact dates unlocks in <strong>{daysUntilTrip - 14} days</strong>. For now, we recommend packing based on typical seasonal averages for <strong>{plan.destination}</strong>.
+              <p className="text-sm text-muted-foreground leading-relaxed text-left">
+                Meteorological data for your exact dates unlocks in <strong>{daysUntilTrip - 14} days</strong>. We recommend packing based on typical seasonal averages for <strong>{plan.destination}</strong>.
               </p>
             </div>
           </motion.div>
@@ -454,28 +532,37 @@ export default function TripPlanPage() {
             return (
             <div key={idx} className="relative">
 
-              {/* Day Header - Sticky */}
-              <div className="flex items-center mb-6 sticky top-4 z-10 bg-background/80 backdrop-blur-md py-3 px-4 rounded-xl shadow-sm border">
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg mr-4 shrink-0 shadow-lg">
-                  D{day.dayNumber}
-                </div>
-                <div>
-                  <h2 className="text-xl md:text-2xl font-bold">{day.theme}</h2>
-                  {realDateStr && (
-                    <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                      <Calendar className="h-3 w-3 inline mr-1" />{realDateStr}
-                    </p>
-                  )}
+              {/* Massive Background Number */}
+              <div className="absolute -top-16 -left-8 md:-left-16 text-[12rem] md:text-[16rem] font-serif text-foreground opacity-[0.03] leading-none pointer-events-none select-none z-0">
+                {day.dayNumber}
+              </div>
+
+              {/* Day Header - Static */}
+              <div className="flex items-end justify-between mb-12 py-6 px-4 border-b border-[var(--gold)]/30 relative z-10">
+                <div className="flex items-baseline relative z-10">
+                  <div>
+                    <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--gold)] font-bold mb-2 block">
+                      Day {day.dayNumber}
+                    </span>
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif tracking-tight text-foreground">{day.theme}</h2>
+                    {realDateStr && (
+                      <p className="text-[10px] tracking-[0.2em] text-muted-foreground uppercase mt-3 italic font-serif">
+                        {realDateStr}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Weather Forecast Badge */}
                 {destLat && destLng && (
-                  <DailyWeather lat={destLat} lng={destLng} dayOffset={idx} startDate={trip.start_date} />
+                  <div className="opacity-70 scale-90 origin-right">
+                    <DailyWeather lat={destLat} lng={destLng} dayOffset={idx} startDate={trip.start_date} />
+                  </div>
                 )}
               </div>
 
               {/* Timeline Container */}
-              <div className="ml-6 border-l-2 border-primary/20 pl-8 space-y-8 py-2">
+              <div className="ml-2 sm:ml-8 space-y-4 py-2">
 
                 {/* Activities Blocks */}
                 {day.activities.map((activity: any, actIdx: number) => {
@@ -499,21 +586,21 @@ export default function TripPlanPage() {
                           <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Getting There</span>
                           <div className="h-px flex-1 bg-border" />
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                          <a href={`https://m.uber.com/ul/?action=setPickup&client_id=&pickup=my_location&dropoff[latitude]=${activity.lat}&dropoff[longitude]=${activity.lng}&dropoff[nickname]=${encodeURIComponent(activity.name)}`} target="_blank" rel="noopener noreferrer" className="bg-blue-500/10 border border-blue-500/15 rounded-xl p-2.5 hover:bg-blue-500/20 transition-colors block">
-                            <Car className="h-4 w-4 mx-auto text-blue-500 mb-1" />
-                            <p className="text-sm font-black text-blue-600 dark:text-blue-400">₹{cabFare}</p>
-                            <p className="text-[10px] text-muted-foreground">Book Cab</p>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <a href={`https://m.uber.com/ul/?action=setPickup&client_id=&pickup=my_location&dropoff[latitude]=${activity.lat}&dropoff[longitude]=${activity.lng}&dropoff[nickname]=${encodeURIComponent(activity.name)}`} target="_blank" rel="noopener noreferrer" className="border border-border/50 bg-transparent rounded-none p-3 hover:bg-black/5 transition-colors block">
+                            <Car className="h-4 w-4 mx-auto text-foreground/60 mb-2" />
+                            <p className="text-sm font-serif text-foreground">₹{cabFare}</p>
+                            <p className="text-[9px] uppercase tracking-widest text-muted-foreground mt-1">Book Cab</p>
                           </a>
-                          <a href={`https://book.olacabs.com/`} target="_blank" rel="noopener noreferrer" className="bg-amber-500/10 border border-amber-500/15 rounded-xl p-2.5 hover:bg-amber-500/20 transition-colors block">
-                            <Navigation className="h-4 w-4 mx-auto text-amber-500 mb-1" />
-                            <p className="text-sm font-black text-amber-600 dark:text-amber-400">₹{autoFare}</p>
-                            <p className="text-[10px] text-muted-foreground">Book Auto</p>
+                          <a href={`https://book.olacabs.com/`} target="_blank" rel="noopener noreferrer" className="border border-border/50 bg-transparent rounded-none p-3 hover:bg-black/5 transition-colors block">
+                            <Navigation className="h-4 w-4 mx-auto text-foreground/60 mb-2" />
+                            <p className="text-sm font-serif text-foreground">₹{autoFare}</p>
+                            <p className="text-[9px] uppercase tracking-widest text-muted-foreground mt-1">Book Auto</p>
                           </a>
-                          <div className="bg-emerald-500/10 border border-emerald-500/15 rounded-xl p-2.5">
-                            <MapPin className="h-4 w-4 mx-auto text-emerald-500 mb-1" />
-                            <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">{distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(1)}km`}</p>
-                            <p className="text-[10px] text-muted-foreground">{walkMins < 30 ? `🚶 ${walkMins}m walk` : 'Drive only'}</p>
+                          <div className="border border-border/50 bg-transparent rounded-none p-3">
+                            <MapPin className="h-4 w-4 mx-auto text-foreground/60 mb-2" />
+                            <p className="text-sm font-serif text-foreground">{distKm < 1 ? `${Math.round(distKm * 1000)}m` : `${distKm.toFixed(1)}km`}</p>
+                            <p className="text-[9px] uppercase tracking-widest text-muted-foreground mt-1">{walkMins < 30 ? `${walkMins}m walk` : 'Drive only'}</p>
                           </div>
                         </div>
                       </div>
@@ -526,29 +613,30 @@ export default function TripPlanPage() {
                       {transportBlock}
 
                       {/* Timeline Dot */}
-                      <div className={`absolute -left-[41px] top-1 h-5 w-5 rounded-full border-4 border-background shadow-sm ${isDone ? 'bg-emerald-500' : 'bg-primary'}`} />
+                      <div className={`absolute -left-[41px] top-1 h-5 w-5 rounded-full border-4 border-background shadow-sm ${isDone ? 'bg-emerald-500' : 'bg-[var(--gold)]'}`} />
 
-                      <div className="mb-1.5 flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-primary uppercase tracking-wider bg-primary/10 px-2.5 py-1 rounded-md">
+                      <div className="mb-4 flex items-center gap-3 flex-wrap">
+                        <span className="text-[10px] font-medium text-foreground uppercase tracking-[0.2em] border-b border-foreground/20 pb-0.5">
                           {activity.time}
                         </span>
                         {activity.category && (
-                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-md ${categoryColor}`}>
+                          <span className={`text-[9px] uppercase tracking-widest px-3 py-1 bg-transparent ${categoryColor}`}>
                             {activity.category}
                           </span>
                         )}
                         {isDone && (
-                          <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                            ✓ Done
+                          <span className="text-[9px] uppercase tracking-widest px-3 py-1 border border-foreground/30 text-foreground/50">
+                            ✓ Completed
                           </span>
                         )}
                       </div>
 
                       <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        whileInView={{ opacity: 1, x: 0 }}
+                        initial={{ opacity: 0, y: 40, scale: 0.98 }}
+                        whileInView={{ opacity: 1, y: 0, scale: 1 }}
                         viewport={{ once: true, margin: "-50px" }}
-                        transition={{ duration: 0.5 }}
+                        transition={{ duration: 0.8, delay: actIdx * 0.12, ease: [0.22, 1, 0.36, 1] }}
+                        className="relative z-10"
                       >
                         {(() => {
                           const isSwapped = swappedActivities[`${idx}-${actIdx}`]
@@ -559,24 +647,25 @@ export default function TripPlanPage() {
                           if (isSwapped && !displayActivity.time) displayActivity.time = activity.time
                           
                           return (
-                        <Card className={`mt-2 hover:shadow-xl transition-all duration-300 group border-muted ${isDone ? 'bg-emerald-50/30 dark:bg-emerald-950/10 border-emerald-200/50 dark:border-emerald-800/30' : isSwapped ? 'bg-indigo-50/30 dark:bg-indigo-950/10 border-indigo-200/50 dark:border-indigo-800/30' : 'bg-card/50 hover:bg-card'}`}>
-                          <CardContent className="p-4 sm:p-5">
+                        <Card className={`mt-8 rounded-3xl border border-white/40 dark:border-white/10 bg-white/40 dark:bg-black/20 backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] transition-all duration-700 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_20px_40px_rgb(0,0,0,0.4)] hover:-translate-y-1 overflow-hidden relative ${isDone ? 'opacity-40' : ''}`}>
+                          <div className="absolute inset-0 bg-gradient-to-br from-white/40 dark:from-white/5 to-transparent pointer-events-none" />
+                          <CardContent className="p-8 sm:p-10 relative z-10">
                           <div className="flex gap-4">
-                            <div className={`h-11 w-11 shrink-0 rounded-xl flex items-center justify-center transition-colors hidden sm:flex ${isDone ? 'bg-emerald-500/10 text-emerald-500' : isSwapped ? 'bg-indigo-500/10 text-indigo-500' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white'}`}>
+                            <div className={`h-11 w-11 shrink-0 rounded-xl flex items-center justify-center transition-colors hidden sm:flex ${isDone ? 'bg-emerald-500/10 text-emerald-500' : isSwapped ? 'bg-indigo-500/10 text-indigo-500' : 'bg-[var(--gold)]/10 text-[var(--gold)] group-hover:bg-[var(--gold)] group-hover:text-white'}`}>
                               {isDone ? <CheckCircle2 className="h-5 w-5" /> : isSwapped ? <Building2 className="h-5 w-5" /> : <ActivityIcon className="h-5 w-5" />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-start gap-2">
-                                <h3 className={`font-bold text-lg leading-tight ${isDone ? 'line-through text-muted-foreground' : ''}`}>
-                                  {displayActivity.name} {isSwapped && <span className="text-xs text-indigo-500 ml-1 font-semibold border border-indigo-200 bg-indigo-50 px-2 py-0.5 rounded-full relative -top-0.5">(Indoor Alternative)</span>}
+                              <div className="flex justify-between items-start gap-4">
+                                <h3 className={`font-serif text-2xl leading-tight text-foreground ${isDone ? 'opacity-40 line-through' : ''}`}>
+                                  {displayActivity.name} {isSwapped && <span className="text-[10px] uppercase tracking-widest text-foreground/50 ml-2 font-sans">(Indoor Alternative)</span>}
                                 </h3>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-2 mt-1">
                                   {activity.journalSpend && (
-                                    <span className="text-xs font-bold whitespace-nowrap text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg border border-amber-200 dark:border-amber-800">
+                                    <span className="text-[10px] uppercase tracking-widest text-foreground/70 border border-foreground/20 px-3 py-1">
                                       Spent ₹{Number(activity.journalSpend).toLocaleString('en-IN')}
                                     </span>
                                   )}
-                                  <span className="text-xs font-bold whitespace-nowrap text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                  <span className="text-[10px] uppercase tracking-widest text-foreground/70 border border-foreground/20 px-3 py-1">
                                     {displayActivity.costEstimate}
                                   </span>
                                 </div>
@@ -592,6 +681,12 @@ export default function TripPlanPage() {
                               <p className="text-muted-foreground text-sm leading-relaxed mt-2">
                                 {displayActivity.description}
                               </p>
+
+                              {displayActivity.whyVisit && (
+                                <p className="mt-6 text-sm text-foreground/80 leading-relaxed italic border-l border-[var(--gold)]/40 pl-5 font-serif">
+                                  "{displayActivity.whyVisit}"
+                                </p>
+                              )}
 
                               {/* Journal Note Display */}
                               {activity.journalNote && (
@@ -613,31 +708,33 @@ export default function TripPlanPage() {
 
                               {/* Why Visit Badge */}
                               {displayActivity.whyVisit && (
-                                <div className="mt-3 flex items-start gap-1.5 text-xs text-primary/80 bg-primary/5 px-3 py-2 rounded-lg border border-primary/10">
-                                  <Sparkles className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                                  <span className="font-medium">{displayActivity.whyVisit}</span>
+                                <div className="mt-3 flex items-start gap-2 text-[10px] sm:text-xs text-foreground/80 bg-transparent px-4 py-3 border border-foreground/10 uppercase tracking-widest font-medium">
+                                  <Sparkles className="h-4 w-4 mt-0.5 shrink-0 text-[var(--gold)]" />
+                                  <span>{displayActivity.whyVisit}</span>
                                 </div>
                               )}
 
                               {/* Signature Dish Badge */}
                               {displayActivity.signatureDish && (
-                                <div className="mt-2 flex items-start gap-1.5 text-xs text-orange-600 dark:text-orange-400 bg-orange-500/5 px-3 py-2 rounded-lg border border-orange-500/10">
+                                <div className="mt-2 flex items-start gap-1.5 text-xs text-foreground/60 bg-foreground/5 px-3 py-2 rounded-lg border border-foreground/10">
                                   <UtensilsCrossed className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                                   <span className="font-medium"><strong>Must Try:</strong> {displayActivity.signatureDish}</span>
                                 </div>
                               )}
 
-                              {/* Pro Tip Badge */}
+                              {/* Pro Tip Display */}
                               {displayActivity.proTip && (
-                                <div className="mt-2 flex items-start gap-1.5 text-xs text-sky-600 dark:text-sky-400 bg-sky-500/5 px-3 py-2 rounded-lg border border-sky-500/10">
-                                  <Lightbulb className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                                  <span className="font-medium"><strong>Pro Tip:</strong> {displayActivity.proTip}</span>
+                                <div className="mt-4 flex items-start gap-2 bg-transparent border-t border-[var(--gold)]/20 pt-4">
+                                  <Lightbulb className="h-4 w-4 text-[var(--gold)] mt-0.5 shrink-0" />
+                                  <p className="text-[10px] sm:text-xs text-foreground/80 font-medium uppercase tracking-wider">
+                                    Pro Tip: <span className="text-muted-foreground normal-case tracking-normal">{displayActivity.proTip}</span>
+                                  </p>
                                 </div>
                               )}
 
                               {/* Nearest Metro Badge */}
                               {displayActivity.nearestMetro && displayActivity.nearestMetro.station && (
-                                <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 px-3 py-2 rounded-lg border border-emerald-500/10">
+                                <div className="mt-2 flex items-center gap-1.5 text-xs text-foreground/60 bg-foreground/5 px-3 py-2 rounded-lg border border-foreground/10">
                                   <Train className="h-3.5 w-3.5 shrink-0" />
                                   <span className="font-medium">
                                     🚇 {displayActivity.nearestMetro.station} ({displayActivity.nearestMetro.line}) · {displayActivity.nearestMetro.walkMins} min walk
@@ -649,24 +746,30 @@ export default function TripPlanPage() {
                           
                           {/* Swap Activity Button (If Indoor Alternative Exists) */}
                           {activity.indoorAlternative && !isDone && (
-                            <div className="mt-4 pt-3 border-t border-dashed border-border/60 flex justify-end no-print">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => toggleSwap(idx, actIdx)}
-                                className={`text-xs h-8 ${isSwapped ? 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800' : 'text-muted-foreground hover:text-foreground'}`}
+                            <div className="mt-4 pt-4 flex justify-end no-print">
+                              <button 
+                                onClick={() => toggleSwap(`${idx}-${actIdx}`)}
+                                className={`flex items-center gap-2 text-[10px] uppercase tracking-widest font-medium px-4 py-2 border transition-all ${
+                                  isSwapped 
+                                    ? 'bg-transparent text-foreground border-foreground/30 hover:bg-foreground/5' 
+                                    : 'bg-transparent text-foreground/70 border-foreground/20 hover:border-foreground/40 hover:text-foreground'
+                                }`}
                               >
                                 {isSwapped ? (
-                                  <><RefreshCcw className="h-3 w-3 mr-1.5" /> Revert to Original</>
+                                  <>
+                                    <Sun className="h-3 w-3" /> Swap back to Outdoor
+                                  </>
                                 ) : (
-                                  <><CloudRain className="h-3 w-3 mr-1.5 text-sky-500" /> Raining? Swap for Indoor Activity</>
+                                  <>
+                                    <CloudRain className="h-3 w-3 text-[var(--gold)]" /> Raining? Swap for Indoor Activity
+                                  </>
                                 )}
-                              </Button>
+                              </button>
                             </div>
                           )}
 
                           {/* Journal Action Bar — Bold & Prominent */}
-                          <div className="mt-4 pt-3 border-t border-dashed no-print">
+                          <div className="mt-6 pt-4 border-t border-border/30 no-print">
                             <button
                               onClick={() => {
                                 setJournalModal({ dayIdx: idx, actIdx })
@@ -674,16 +777,16 @@ export default function TripPlanPage() {
                                 setJournalSpend(activity.journalSpend || "")
                                 setJournalRating(activity.journalRating || 0)
                               }}
-                              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                              className={`w-full flex items-center justify-center gap-2 py-3 rounded-none font-medium text-xs tracking-widest uppercase transition-all ${
                                 isDone
-                                  ? 'bg-gradient-to-r from-emerald-500/10 to-teal-500/10 text-emerald-600 dark:text-emerald-400 hover:from-emerald-500/20 hover:to-teal-500/20 border border-emerald-500/20'
-                                  : 'bg-gradient-to-r from-violet-500/10 to-indigo-500/10 text-violet-600 dark:text-violet-400 hover:from-violet-500/20 hover:to-indigo-500/20 border border-violet-500/20'
+                                  ? 'text-muted-foreground hover:text-foreground border border-border/50'
+                                  : 'text-foreground border border-foreground hover:bg-foreground hover:text-background'
                               }`}
                             >
                               {isDone ? (
-                                <><CheckCircle2 className="h-4 w-4" /> View Journal Entry</>
+                                <><CheckCircle2 className="h-3.5 w-3.5" /> Entry Saved</>
                               ) : (
-                                <><PenLine className="h-4 w-4" /> Log Experience & Spend</>
+                                <><PenLine className="h-3.5 w-3.5" /> Log Experience</>
                               )}
                             </button>
                           </div>
@@ -701,14 +804,10 @@ export default function TripPlanPage() {
         </div>
 
         {/* Nightlife Toggle Section — hidden in print */}
-        <div className="mt-14 no-print">
-          <Button
-            size="lg"
-            variant={showNightlife ? "default" : "outline"}
-            className={`rounded-full px-8 shadow-sm font-bold transition-all ${
-              showNightlife
-                ? "bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:opacity-90 text-white"
-                : "border-fuchsia-300 text-fuchsia-600 hover:bg-fuchsia-50 dark:border-fuchsia-700 dark:text-fuchsia-400 dark:hover:bg-fuchsia-950"
+        <div className="mt-20 mb-8 no-print flex justify-center">
+          <button
+            className={`flex items-center gap-3 text-[10px] uppercase tracking-[0.2em] font-medium px-8 py-4 border transition-all ${
+              showNightlife ? "bg-foreground/5 border-foreground/30 text-foreground" : "border-[var(--gold)]/40 bg-transparent hover:bg-[var(--gold)]/5 text-foreground"
             }`}
             onClick={async () => {
               if (showNightlife) {
@@ -736,48 +835,47 @@ export default function TripPlanPage() {
             }}
           >
             {loadingNightlife ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Finding Nightlife...</>
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Curating Nightlife...</>
             ) : showNightlife ? (
-              <><Music className="h-4 w-4 mr-2" /> Hide Nightlife</>
+              <>Hide Nightlife</>
             ) : (
-              <><Wine className="h-4 w-4 mr-2" /> Show Bars & Nightlife 🎶</>
+              <>Explore Nightlife</>
             )}
-          </Button>
+          </button>
 
           {showNightlife && nightlifeSpots.length > 0 && (
-            <div className="mt-8">
-              <h2 className="text-xl font-bold mb-5 flex items-center text-fuchsia-500">
-                <Music className="h-5 w-5 mr-2" /> After Dark in {plan.destination}
+            <div className="mt-12">
+              <h2 className="text-2xl font-serif mb-8 text-foreground text-center">
+                After Dark
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 {nightlifeSpots.map((spot: any, idx: number) => (
-                  <Card key={idx} className="relative overflow-hidden border-fuchsia-500/20 bg-gradient-to-br from-fuchsia-500/5 to-purple-500/5 dark:from-fuchsia-500/10 dark:to-purple-500/10 hover:shadow-lg transition-all group">
-                    <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-gradient-to-b from-fuchsia-500 to-purple-600" />
-                    <CardContent className="p-5">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="pr-2">
-                          <span className="text-[10px] font-bold text-fuchsia-500 uppercase tracking-wider mb-1 block">
-                            {spot.category} · {spot.bestFor}
+                  <Card key={idx} className="rounded-none border-x-0 border-t-0 border-b border-border/40 bg-transparent shadow-none hover:bg-black/[0.02] transition-colors">
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="pr-4">
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest mb-2 block">
+                            {spot.category}
                           </span>
-                          <h3 className="font-bold text-lg leading-tight">{spot.name}</h3>
+                          <h3 className="font-serif text-xl leading-tight text-foreground">{spot.name}</h3>
                         </div>
-                        <span className="text-xs font-bold bg-fuchsia-50 dark:bg-fuchsia-900/20 text-fuchsia-700 dark:text-fuchsia-300 px-2.5 py-1 rounded-md border border-fuchsia-200 dark:border-fuchsia-800 whitespace-nowrap">
+                        <span className="text-xs font-serif text-foreground/70">
                           {spot.priceRange}
                         </span>
                       </div>
                       {spot.rating && (
-                        <div className="mb-2"><StarRating rating={spot.rating} /></div>
+                        <div className="mb-4 opacity-70"><StarRating rating={spot.rating} /></div>
                       )}
-                      <p className="text-sm text-muted-foreground italic">"{spot.vibe}"</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed italic border-l border-border/50 pl-4 mb-4">"{spot.vibe}"</p>
                       {spot.timings && (
-                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {spot.timings}
+                        <p className="text-xs text-muted-foreground mt-2 font-serif">
+                          {spot.timings}
                         </p>
                       )}
                       {spot.whyGo && (
-                        <div className="mt-3 flex items-start gap-1.5 text-xs text-fuchsia-600 dark:text-fuchsia-400 bg-fuchsia-500/5 px-3 py-2 rounded-lg border border-fuchsia-500/10">
-                          <Sparkles className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          <span className="font-medium">{spot.whyGo}</span>
+                        <div className="mt-4 flex items-start gap-2 bg-transparent border-t border-[var(--gold)]/20 pt-4 text-[10px] sm:text-xs text-foreground/80 font-medium uppercase tracking-widest">
+                          <Sparkles className="h-4 w-4 mt-0.5 shrink-0 text-[var(--gold)]" />
+                          <span className="normal-case tracking-normal">{spot.whyGo}</span>
                         </div>
                       )}
                     </CardContent>
@@ -829,15 +927,15 @@ export default function TripPlanPage() {
 
         {/* Footer Actions */}
         {!isModifying && (
-          <div className="mt-16 flex flex-col sm:flex-row justify-center gap-4 pb-12">
-            <Button variant="outline" size="lg" className="rounded-full px-8 shadow-sm border-primary/20 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950" onClick={() => setIsModifying(true)}>
-              <RefreshCcw className="h-4 w-4 mr-2" /> Modify Trip
+          <div className="mt-20 flex flex-col sm:flex-row justify-center gap-6 pb-24 border-t border-border/30 pt-16">
+            <Button variant="ghost" size="lg" className="rounded-none border-b border-transparent hover:border-foreground text-foreground uppercase tracking-widest text-xs px-0 hover:bg-transparent" onClick={() => setIsModifying(true)}>
+              Modify Trip
             </Button>
-            <Button variant="outline" size="lg" className="rounded-full px-8 shadow-sm border-primary/20 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => window.print()}>
-              <Printer className="h-4 w-4 mr-2" /> Export
+            <Button variant="ghost" size="lg" className="rounded-none border-b border-transparent hover:border-foreground text-foreground uppercase tracking-widest text-xs px-0 hover:bg-transparent" onClick={() => window.print()}>
+              Export Itinerary
             </Button>
-            <Button variant="outline" size="lg" className="rounded-full px-8 shadow-sm border-primary/20 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => router.push('/trip-input')}>
-              <Plus className="h-4 w-4 mr-2" /> Plan New Trip
+            <Button variant="outline" size="lg" className="rounded-none border-foreground text-foreground hover:bg-foreground hover:text-background uppercase tracking-widest text-xs px-8" onClick={() => router.push('/trip-input')}>
+              Plan New Trip
             </Button>
           </div>
         )}
@@ -908,54 +1006,52 @@ export default function TripPlanPage() {
         />
       )}
 
-      <div className="fixed bottom-6 right-6 z-[9997] print:hidden flex flex-col-reverse items-end gap-3">
+      <div className="fixed bottom-6 right-6 z-[9997] print:hidden flex flex-col-reverse items-end gap-2">
         {/* Main Toggle Button */}
         <motion.button
           onClick={() => setFabOpen(!fabOpen)}
           animate={{ rotate: fabOpen ? 90 : 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className={`h-14 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-xl hover:shadow-2xl transition-shadow flex items-center justify-center gap-2 ${fabOpen ? 'w-14' : 'pl-5 pr-4'}`}
+          className={`h-14 rounded-none border border-foreground bg-background text-foreground hover:bg-foreground hover:text-background shadow-none transition-colors flex items-center justify-center gap-3 tracking-widest uppercase text-[10px] ${fabOpen ? 'w-14' : 'px-6'}`}
         >
           {fabOpen ? (
-            <Plus className="h-7 w-7" />
+            <X className="h-5 w-5" />
           ) : (
-            <span className="text-sm font-bold tracking-wide">Trip Tools</span>
+            <span className="font-medium">Trip Tools</span>
           )}
         </motion.button>
 
         {/* Fan-out Buttons */}
         <AnimatePresence>
           {fabOpen && (
-            <>
+            <div className="flex flex-col gap-1 items-end bg-background/95 backdrop-blur-md border border-border p-2 mb-2 shadow-2xl">
               {[
-                { label: "SOS", icon: Shield, color: "from-red-500 to-rose-600", action: () => { setSosOpen(true); setFabOpen(false) } },
-                { label: "Street Food", icon: UtensilsCrossed, color: "from-orange-500 to-red-500", action: () => { setStreetFoodOpen(true); setFabOpen(false) } },
-                { label: "Local Tips", icon: ThumbsUp, color: "from-amber-500 to-orange-600", action: () => { setLocalTipsOpen(true); setFabOpen(false) } },
-                { label: "Phrases", icon: Languages, color: "from-blue-500 to-indigo-600", action: () => { setLanguageOpen(true); setFabOpen(false) } },
-                { label: "Budget", icon: Wallet, color: "from-emerald-500 to-teal-600", action: () => { setBudgetOpen(true); setFabOpen(false) } },
-                { label: "Packing", icon: Briefcase, color: "from-sky-500 to-blue-600", action: () => { setPackingOpen(true); setFabOpen(false) } },
-                { label: "AI Chat", icon: MessageSquarePlus, color: "from-violet-500 to-purple-600", action: () => { setChatOpen(true); setFabOpen(false) } },
-                { label: "Metro", icon: Train, color: "from-teal-500 to-cyan-600", action: () => { setMetroOpen(true); setFabOpen(false) } },
+                { label: "SOS", icon: Shield, action: () => { setSosOpen(true); setFabOpen(false) } },
+                { label: "Street Food", icon: UtensilsCrossed, action: () => { setStreetFoodOpen(true); setFabOpen(false) } },
+                { label: "Local Tips", icon: ThumbsUp, action: () => { setLocalTipsOpen(true); setFabOpen(false) } },
+                { label: "Phrases", icon: Languages, action: () => { setLanguageOpen(true); setFabOpen(false) } },
+                { label: "Budget", icon: Wallet, action: () => { setBudgetOpen(true); setFabOpen(false) } },
+                { label: "Packing", icon: Briefcase, action: () => { setPackingOpen(true); setFabOpen(false) } },
+                { label: "AI Chat", icon: MessageSquarePlus, action: () => { setChatOpen(true); setFabOpen(false) } },
+                { label: "Metro", icon: Train, action: () => { setMetroOpen(true); setFabOpen(false) } },
               ].map((item, i) => {
                 const Icon = item.icon
                 return (
                   <motion.button
                     key={item.label}
-                    initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.8 }}
-                    transition={{ delay: i * 0.05, type: "spring", stiffness: 300, damping: 20 }}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ delay: i * 0.04 }}
                     onClick={item.action}
-                    className={`flex items-center gap-2.5 pl-4 pr-2 py-2 rounded-full bg-gradient-to-r ${item.color} text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all`}
+                    className={`flex items-center gap-4 px-4 py-3 border-b border-border/40 text-foreground hover:bg-foreground hover:text-background transition-all w-48 justify-end last:border-0`}
                   >
-                    <span className="text-xs font-bold whitespace-nowrap">{item.label}</span>
-                    <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
-                      <Icon className="h-5 w-5" />
-                    </div>
+                    <span className="text-[10px] font-medium uppercase tracking-widest">{item.label}</span>
+                    <Icon className="h-4 w-4" />
                   </motion.button>
                 )
               })}
-            </>
+            </div>
           )}
         </AnimatePresence>
       </div>

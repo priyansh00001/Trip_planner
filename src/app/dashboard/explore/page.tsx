@@ -1,93 +1,55 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
-import { Sparkles, Mountain, Palmtree, Building2, Tent, DollarSign, Plane, ArrowRight, Star, Copy, ImageIcon, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { Sparkles, Mountain, Palmtree, Building2, Tent, ArrowRight, Star, Copy, ImageIcon, ChevronLeft, ChevronRight, Loader2, MapPin, Calendar, Wallet, Plane } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
 
-// ─── Animated Hero Visual ───
-function HeroVisual() {
-  const destinations = [
-    { name: "Goa", top: "15%", left: "20%", delay: 0, color: "from-cyan-400 to-blue-500" },
-    { name: "Kashmir", top: "8%", left: "55%", delay: 0.3, color: "from-violet-400 to-purple-500" },
-    { name: "Jaipur", top: "35%", left: "40%", delay: 0.6, color: "from-amber-400 to-orange-500" },
-    { name: "Kerala", top: "65%", left: "25%", delay: 0.9, color: "from-emerald-400 to-teal-500" },
-    { name: "Manali", top: "45%", left: "70%", delay: 1.2, color: "from-sky-400 to-indigo-500" },
-    { name: "Udaipur", top: "75%", left: "60%", delay: 1.5, color: "from-pink-400 to-rose-500" },
-  ]
-
-  return (
-    <div className="relative w-[400px] h-[400px] md:w-[500px] md:h-[500px]">
-      {/* Glowing orb background */}
-      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-600/20 via-indigo-600/10 to-pink-600/20 blur-3xl animate-pulse" />
-      
-      {/* Rotating ring */}
-      <div className="absolute inset-8 rounded-full border border-purple-500/20 animate-[spin_30s_linear_infinite]" />
-      <div className="absolute inset-16 rounded-full border border-pink-500/15 animate-[spin_25s_linear_infinite_reverse]" />
-      <div className="absolute inset-24 rounded-full border border-indigo-500/10 animate-[spin_20s_linear_infinite]" />
-      
-      {/* Center icon */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-2xl shadow-purple-500/30">
-        <Plane className="h-9 w-9 text-white" />
-      </div>
-
-      {/* Floating destination cards */}
-      {destinations.map((dest, i) => (
-        <motion.div
-          key={dest.name}
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: dest.delay, type: "spring", stiffness: 200 }}
-          className="absolute"
-          style={{ top: dest.top, left: dest.left }}
-        >
-          <motion.div
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 3 + i * 0.5, repeat: Infinity, ease: "easeInOut" }}
-            className={`bg-gradient-to-r ${dest.color} text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg cursor-pointer hover:scale-110 transition-transform whitespace-nowrap`}
-          >
-            {dest.name}
-          </motion.div>
-        </motion.div>
-      ))}
-    </div>
-  )
+// ─── Destination card images ───
+const destImages: Record<string, string> = {
+  goa: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?q=80&w=600&auto=format&fit=crop',
+  manali: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=600&auto=format&fit=crop',
+  jaipur: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?q=80&w=600&auto=format&fit=crop',
+  kerala: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?q=80&w=600&auto=format&fit=crop',
+  kashmir: 'https://images.unsplash.com/photo-1614591276564-7b3e69347a48?q=80&w=600&auto=format&fit=crop',
+  rishikesh: 'https://images.unsplash.com/photo-1683318528842-bd5f1fd0ff9a?q=80&w=600&auto=format&fit=crop',
+  udaipur: 'https://images.unsplash.com/photo-1589901164570-f9de6556e1c1?q=80&w=600&auto=format&fit=crop',
+  dubai: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=600&auto=format&fit=crop',
 }
 
 // ─── Curated Templates ───
 const TEMPLATES = [
-  { id: "goa-4", title: "4 Days in Goa", subtitle: "Beaches, Nightlife & Seafood", days: 4, budget: "₹25,000", icon: "*", gradient: "from-cyan-500 to-blue-500", dest: "Goa" },
-  { id: "manali-5", title: "5 Days in Manali", subtitle: "Snow, Trekking & Solang Valley", days: 5, budget: "₹20,000", icon: "*", gradient: "from-sky-500 to-indigo-600", dest: "Manali" },
-  { id: "jaipur-3", title: "3 Days in Jaipur", subtitle: "Forts, Palaces & Culture", days: 3, budget: "₹15,000", icon: "*", gradient: "from-amber-500 to-orange-600", dest: "Jaipur" },
-  { id: "kerala-6", title: "6 Days in Kerala", subtitle: "Backwaters, Tea Gardens & Ayurveda", days: 6, budget: "₹35,000", icon: "*", gradient: "from-emerald-500 to-teal-600", dest: "Kerala" },
-  { id: "kashmir-7", title: "7 Days in Kashmir", subtitle: "Dal Lake, Gulmarg & Pahalgam", days: 7, budget: "₹40,000", icon: "*", gradient: "from-violet-500 to-purple-600", dest: "Kashmir" },
-  { id: "rishikesh-3", title: "3 Days in Rishikesh", subtitle: "Rafting, Yoga & Ganges", days: 3, budget: "₹12,000", icon: "*", gradient: "from-green-500 to-emerald-600", dest: "Rishikesh" },
-  { id: "udaipur-4", title: "4 Days in Udaipur", subtitle: "Lakes, Heritage & Romance", days: 4, budget: "₹18,000", icon: "*", gradient: "from-pink-500 to-rose-600", dest: "Udaipur" },
-  { id: "dubai-5", title: "5 Days in Dubai", subtitle: "Burj Khalifa, Desert Safari", days: 5, budget: "₹1,00,000", icon: "*", gradient: "from-yellow-500 to-amber-600", dest: "Dubai" },
+  { id: "goa-4", title: "Goa", tagline: "Beaches, Nightlife & Seafood", days: 4, budget: "₹25,000", dest: "Goa", season: "Oct – Mar" },
+  { id: "manali-5", title: "Manali", tagline: "Snow, Trekking & Solang Valley", days: 5, budget: "₹20,000", dest: "Manali", season: "Dec – Feb" },
+  { id: "jaipur-3", title: "Jaipur", tagline: "Forts, Palaces & Culture", days: 3, budget: "₹15,000", dest: "Jaipur", season: "Nov – Feb" },
+  { id: "kerala-6", title: "Kerala", tagline: "Backwaters, Tea Gardens & Ayurveda", days: 6, budget: "₹35,000", dest: "Kerala", season: "Sep – Mar" },
+  { id: "kashmir-7", title: "Kashmir", tagline: "Dal Lake, Gulmarg & Pahalgam", days: 7, budget: "₹40,000", dest: "Kashmir", season: "Mar – Oct" },
+  { id: "rishikesh-3", title: "Rishikesh", tagline: "Rafting, Yoga & Ganges", days: 3, budget: "₹12,000", dest: "Rishikesh", season: "Sep – Nov" },
+  { id: "udaipur-4", title: "Udaipur", tagline: "Lakes, Heritage & Romance", days: 4, budget: "₹18,000", dest: "Udaipur", season: "Oct – Mar" },
+  { id: "dubai-5", title: "Dubai", tagline: "Burj Khalifa, Desert Safari", days: 5, budget: "₹1,00,000", dest: "Dubai", season: "Nov – Mar" },
 ]
 
-// ─── Matchmaker Questions ───
+// ─── Matchmaker Options ───
 const VIBES = [
-  { label: "Relaxing", icon: Palmtree, color: "from-green-400 to-emerald-500" },
-  { label: "Adventure", icon: Mountain, color: "from-orange-400 to-red-500" },
-  { label: "Cultural", icon: Building2, color: "from-purple-400 to-indigo-500" },
-  { label: "Backpacking", icon: Tent, color: "from-yellow-400 to-amber-500" },
+  { label: "Relaxing", icon: Palmtree, desc: "Unwind & recharge" },
+  { label: "Adventure", icon: Mountain, desc: "Thrill & adrenaline" },
+  { label: "Cultural", icon: Building2, desc: "History & heritage" },
+  { label: "Backpacking", icon: Tent, desc: "Budget & explore" },
 ]
-
 const LANDSCAPES = ["🏖️ Beach", "🏔️ Mountains", "🏙️ City", "🌿 Countryside"]
-const BUDGETS = ["₹10,000 - ₹25,000", "₹25,000 - ₹50,000", "₹50,000 - ₹1,00,000", "₹1,00,000+"]
+const BUDGETS = ["₹10k – ₹25k", "₹25k – ₹50k", "₹50k – ₹1L", "₹1L+"]
+const BUDGET_VALUES = ["₹10,000 - ₹25,000", "₹25,000 - ₹50,000", "₹50,000 - ₹1,00,000", "₹1,00,000+"]
 
 // ─── Main Page ───
 export default function ExplorePage() {
   const router = useRouter()
   const [vibe, setVibe] = useState<string | null>(null)
   const [landscape, setLandscape] = useState<string | null>(null)
-  const [budget, setBudget] = useState<string | null>(null)
+  const [budget, setBudget] = useState<number | null>(null)
   const [communityTrips, setCommunityTrips] = useState<any[]>([])
   const [loadingCommunity, setLoadingCommunity] = useState(true)
   const [cloningId, setCloningId] = useState<string | null>(null)
@@ -103,22 +65,15 @@ export default function ExplorePage() {
         .order("created_at", { ascending: false })
         .limit(12)
 
-      if (error) {
-        console.error("Explore page error fetching trips:", error)
-      }
+      if (error) console.error("Explore page error fetching trips:", error)
 
       if (data && data.length > 0) {
-        // Also fetch photos for each trip
         const tripIds = data.map((t: any) => t.id)
-        const { data: photos, error: photoError } = await supabase
+        const { data: photos } = await supabase
           .from("memories")
           .select("trip_id, photo_url, description")
           .in("trip_id", tripIds)
           .limit(50)
-          
-        if (photoError) {
-          console.error("Explore page error fetching photos:", photoError)
-        }
 
         const tripsWithPhotos = data.map((trip: any) => ({
           ...trip,
@@ -132,7 +87,8 @@ export default function ExplorePage() {
   }, [])
 
   const handleMatchmaker = () => {
-    const prompt = `Plan a ${landscape?.replace(/[^\w\s]/g, "").trim() || "scenic"} trip in India with a ${vibe?.toLowerCase() || "relaxing"} vibe, budget around ${budget || "₹50,000"}`
+    const budgetVal = budget !== null ? BUDGET_VALUES[budget] : "₹50,000"
+    const prompt = `Plan a ${landscape?.replace(/[^\w\s]/g, "").trim() || "scenic"} trip in India with a ${vibe?.toLowerCase() || "relaxing"} vibe, budget around ${budgetVal}`
     router.push(`/dashboard?prefill=${encodeURIComponent(prompt)}`)
   }
 
@@ -140,14 +96,9 @@ export default function ExplorePage() {
     setCloningId(tmpl.id)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      router.push("/login")
-      return
-    }
+    if (!user) { router.push("/login"); return }
 
     const todayStr = new Date().toISOString().split('T')[0]
-
     const { data, error } = await supabase.from('trips').insert({
       user_id: user.id,
       destination: tmpl.dest,
@@ -158,306 +109,318 @@ export default function ExplorePage() {
       start_date: todayStr
     }).select().single()
 
-    if (error || !data) {
-      alert("Failed to create trip. Please try again.")
-      return
-    }
-
+    if (error || !data) { alert("Failed to create trip."); return }
     router.push(`/generate-stays/${data.id}`)
   }
 
   const scrollCarousel = (dir: number) => {
-    scrollRef.current?.scrollBy({ left: dir * 340, behavior: "smooth" })
+    scrollRef.current?.scrollBy({ left: dir * 380, behavior: "smooth" })
   }
 
   return (
     <div className="min-h-screen pb-20">
 
-      {/* ═══ SECTION 1: GLOBE HERO ═══ */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-zinc-950 via-zinc-900 to-background py-16 md:py-24">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row items-center gap-8">
-          <div className="flex-1 text-center md:text-left space-y-6 z-10">
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="text-4xl md:text-6xl font-extrabold text-white tracking-tight"
-            >
-              Explore the{" "}
-              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                World
-              </span>
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-              className="text-lg text-zinc-400 max-w-md"
-            >
-              Discover trending destinations, get AI-powered recommendations, or browse trips from our community.
-            </motion.p>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-              <Link
-                href="#matchmaker"
-                className="inline-flex items-center rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-lg px-8 h-14 font-semibold hover:opacity-90 transition-opacity"
-              >
-                <Sparkles className="mr-2 h-5 w-5" /> Find My Perfect Trip
-              </Link>
-            </motion.div>
-          </div>
+      {/* ═══ SECTION 1: EDITORIAL HERO ═══ */}
+      <section className="relative overflow-hidden border-b border-border/30">
+        {/* Background image with overlay */}
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/80 to-background" />
+        
+        <div className="relative max-w-6xl mx-auto px-6 py-24 md:py-36 text-center">
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
-            className="flex-shrink-0"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
           >
-            <HeroVisual />
+            <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--gold)] font-medium mb-6">
+              Curated for the discerning traveler
+            </p>
+            <h1 className="font-serif text-5xl md:text-7xl tracking-tight text-foreground leading-[1.1]">
+              Where will your<br />
+              <span className="italic">next story</span> begin?
+            </h1>
+            <p className="text-muted-foreground mt-6 max-w-lg mx-auto text-sm leading-relaxed">
+              Discover handpicked destinations, let our AI match your perfect getaway, 
+              or draw inspiration from fellow travelers' journeys.
+            </p>
+          </motion.div>
+
+          {/* Trending Destinations */}
+          <motion.div 
+            className="flex flex-wrap justify-center gap-3 mt-12"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            {["Goa", "Kashmir", "Jaipur", "Kerala", "Manali", "Udaipur"].map((name, i) => (
+              <Link key={name} href="/trip-input">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + i * 0.08 }}
+                  className="group flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] font-medium px-5 py-2.5 border border-border/40 bg-background/50 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:border-[var(--gold)]/40 transition-all cursor-pointer"
+                >
+                  <MapPin className="h-3 w-3 text-[var(--gold)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {name}
+                </motion.div>
+              </Link>
+            ))}
           </motion.div>
         </div>
-
-        {/* Trending Destinations Floating Cards */}
-        <div className="max-w-6xl mx-auto px-4 mt-12">
-          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-            {[
-              { name: "Goa", trend: "+42%", color: "border-cyan-500/30" },
-              { name: "Manali", trend: "+38%", color: "border-blue-500/30" },
-              { name: "Jaipur", trend: "+35%", color: "border-amber-500/30" },
-              { name: "Kerala", trend: "+31%", color: "border-emerald-500/30" },
-              { name: "Kashmir", trend: "+29%", color: "border-violet-500/30" },
-              { name: "Rishikesh", trend: "+26%", color: "border-green-500/30" },
-              { name: "Udaipur", trend: "+24%", color: "border-pink-500/30" },
-              { name: "Dubai", trend: "+20%", color: "border-yellow-500/30" },
-            ].map((dest, i) => (
-              <motion.div
-                key={dest.name}
-                initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 + i * 0.1 }}
-                className={`flex-shrink-0 bg-white/5 backdrop-blur-md border ${dest.color} rounded-2xl px-6 py-4 min-w-[140px] text-center hover:bg-white/10 transition-all cursor-pointer`}
-              >
-                <div className="text-white font-bold text-lg">{dest.name}</div>
-                <div className="text-emerald-400 text-xs font-semibold mt-1">{dest.trend} trending</div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
       </section>
 
-      {/* ═══ SECTION 2: AI MATCHMAKER ═══ */}
-      <section id="matchmaker" className="max-w-4xl mx-auto px-4 py-16 md:py-24">
-        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-extrabold mb-3">
-            <Sparkles className="inline h-8 w-8 text-purple-500 mr-2" />
-            AI Destination Matchmaker
-          </h2>
-          <p className="text-muted-foreground text-lg">Answer 3 quick questions and we'll find your dream trip.</p>
-        </motion.div>
-
-        <div className="space-y-10">
-          {/* Q1: Vibe */}
-          <div>
-            <h3 className="text-sm font-bold uppercase text-muted-foreground mb-4">1. What's your vibe?</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {VIBES.map(v => (
-                <button
-                  key={v.label}
-                  onClick={() => setVibe(v.label)}
-                  className={`relative p-6 rounded-2xl border-2 transition-all text-center ${vibe === v.label ? "border-purple-500 bg-purple-500/10 shadow-lg shadow-purple-500/20" : "border-border hover:border-purple-500/40"}`}
-                >
-                  <v.icon className={`h-10 w-10 mx-auto mb-3 ${vibe === v.label ? "text-purple-500" : "text-muted-foreground"}`} />
-                  <span className="font-bold">{v.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Q2: Landscape */}
-          <div>
-            <h3 className="text-sm font-bold uppercase text-muted-foreground mb-4">2. Pick a landscape</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {LANDSCAPES.map(l => (
-                <button
-                  key={l}
-                  onClick={() => setLandscape(l)}
-                  className={`p-5 rounded-2xl border-2 transition-all text-center text-lg font-semibold ${landscape === l ? "border-pink-500 bg-pink-500/10 shadow-lg shadow-pink-500/20" : "border-border hover:border-pink-500/40"}`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Q3: Budget */}
-          <div>
-            <h3 className="text-sm font-bold uppercase text-muted-foreground mb-4">3. Budget range</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {BUDGETS.map(b => (
-                <button
-                  key={b}
-                  onClick={() => setBudget(b)}
-                  className={`p-5 rounded-2xl border-2 transition-all text-center font-semibold ${budget === b ? "border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/20" : "border-border hover:border-emerald-500/40"}`}
-                >
-                  <DollarSign className="h-5 w-5 mx-auto mb-2 text-muted-foreground" />
-                  <span className="text-sm">{b}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* CTA */}
-          <div className="text-center pt-4">
-            <Button
-              size="lg"
-              disabled={!vibe || !landscape || !budget}
-              onClick={handleMatchmaker}
-              className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-lg px-10 h-14 disabled:opacity-40"
-            >
-              <Plane className="mr-2 h-5 w-5" /> Find My Destination <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ SECTION 3: CURATED TEMPLATES ═══ */}
-      <section className="bg-muted/30 py-16 md:py-24">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-8">
+      {/* ═══ SECTION 2: CURATED ITINERARIES ═══ */}
+      <section className="py-20 md:py-28">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex items-end justify-between mb-12">
             <div>
-              <h2 className="text-3xl md:text-4xl font-extrabold">One-Click Trip Templates</h2>
-              <p className="text-muted-foreground mt-1">Handcrafted itineraries, ready to go.</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--gold)] font-medium mb-3">Ready to go</p>
+              <h2 className="font-serif text-3xl md:text-4xl tracking-tight">Curated Itineraries</h2>
+              <p className="text-sm text-muted-foreground mt-2">One click. A complete trip plan crafted by our AI.</p>
             </div>
             <div className="hidden md:flex gap-2">
-              <Button variant="outline" size="icon" className="rounded-full" onClick={() => scrollCarousel(-1)}>
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <Button variant="outline" size="icon" className="rounded-full" onClick={() => scrollCarousel(1)}>
-                <ChevronRight className="h-5 w-5" />
-              </Button>
+              <button 
+                onClick={() => scrollCarousel(-1)}
+                className="p-2.5 border border-border/60 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => scrollCarousel(1)}
+                className="p-2.5 border border-border/60 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
-          <div ref={scrollRef} className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
-            {TEMPLATES.map((tmpl, i) => (
-              <motion.div
-                key={tmpl.id}
-                initial={{ opacity: 0, x: 40 }} whileInView={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
-                viewport={{ once: true }}
-                className="flex-shrink-0 w-[300px] snap-start"
-              >
-                <Card className={`bg-gradient-to-br ${tmpl.gradient} text-white p-6 rounded-2xl h-full flex flex-col shadow-lg hover:shadow-2xl transition-shadow`}>
-                  <h3 className="text-2xl font-bold">{tmpl.title}</h3>
-                  <p className="text-white/80 text-sm mt-2 flex-1">{tmpl.subtitle}</p>
-                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/20">
-                    <div className="text-sm">
-                      <span className="font-bold">{tmpl.days} Days</span> · {tmpl.budget}
+          <div ref={scrollRef} className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory -mx-2 px-2">
+            {TEMPLATES.map((tmpl, i) => {
+              const img = destImages[tmpl.dest.toLowerCase()]
+              return (
+                <motion.div
+                  key={tmpl.id}
+                  initial={{ opacity: 0, x: 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.08 }}
+                  viewport={{ once: true }}
+                  className="flex-shrink-0 w-[320px] snap-start group"
+                >
+                  <div className="border border-border/40 bg-card/50 overflow-hidden hover:border-[var(--gold)]/30 transition-all duration-500 h-full flex flex-col">
+                    {/* Image */}
+                    <div className="h-44 relative overflow-hidden">
+                      {img && (
+                        <div 
+                          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                          style={{ backgroundImage: `url('${img}')` }}
+                        />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+                      <div className="absolute bottom-4 left-5">
+                        <p className="text-[9px] uppercase tracking-[0.15em] font-medium text-white/60">{tmpl.season}</p>
+                      </div>
                     </div>
-                    <Button size="sm" onClick={() => handleCloneTemplate(tmpl)} disabled={cloningId === tmpl.id} className="rounded-full bg-white/20 hover:bg-white/30 text-white border-0">
-                      {cloningId === tmpl.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Copy className="h-4 w-4 mr-1" /> Clone</>}
-                    </Button>
+                    
+                    {/* Content */}
+                    <div className="p-5 flex-1 flex flex-col">
+                      <h3 className="font-serif text-2xl group-hover:text-[var(--gold)] transition-colors">{tmpl.title}</h3>
+                      <p className="text-xs text-muted-foreground mt-1 flex-1">{tmpl.tagline}</p>
+                      
+                      <div className="flex items-center justify-between mt-5 pt-4 border-t border-border/30">
+                        <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+                          <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{tmpl.days}d</span>
+                          <span className="flex items-center gap-1"><Wallet className="h-3 w-3" />{tmpl.budget}</span>
+                        </div>
+                        <button 
+                          onClick={() => handleCloneTemplate(tmpl)} 
+                          disabled={cloningId === tmpl.id}
+                          className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.15em] font-medium px-3 py-2 bg-foreground text-background hover:bg-foreground/90 transition-all disabled:opacity-40"
+                        >
+                          {cloningId === tmpl.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Copy className="h-3 w-3" /> Clone</>}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </Card>
-              </motion.div>
-            ))}
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ SECTION 3: AI MATCHMAKER ═══ */}
+      <section id="matchmaker" className="border-y border-border/30 bg-card/30">
+        <div className="max-w-4xl mx-auto px-6 py-20 md:py-28">
+          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-16">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--gold)] font-medium mb-3">Personalized</p>
+            <h2 className="font-serif text-3xl md:text-4xl tracking-tight mb-3">
+              Destination Matchmaker
+            </h2>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Three questions. One perfect destination. Let our AI read your travel personality.
+            </p>
+          </motion.div>
+
+          <div className="space-y-14">
+            {/* Q1: Vibe */}
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-5 font-medium">01 — Your travel mood</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {VIBES.map(v => (
+                  <button
+                    key={v.label}
+                    onClick={() => setVibe(v.label)}
+                    className={`group p-6 border transition-all duration-300 text-center ${
+                      vibe === v.label 
+                        ? "border-[var(--gold)] bg-[var(--gold)]/5" 
+                        : "border-border/50 hover:border-foreground/20"
+                    }`}
+                  >
+                    <v.icon className={`h-8 w-8 mx-auto mb-3 transition-colors ${vibe === v.label ? "text-[var(--gold)]" : "text-muted-foreground group-hover:text-foreground"}`} />
+                    <span className="block text-xs font-medium uppercase tracking-[0.1em]">{v.label}</span>
+                    <span className="block text-[10px] text-muted-foreground mt-1">{v.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Q2: Landscape */}
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-5 font-medium">02 — Preferred landscape</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {LANDSCAPES.map(l => (
+                  <button
+                    key={l}
+                    onClick={() => setLandscape(l)}
+                    className={`p-5 border transition-all duration-300 text-center text-sm font-medium ${
+                      landscape === l 
+                        ? "border-[var(--gold)] bg-[var(--gold)]/5" 
+                        : "border-border/50 hover:border-foreground/20"
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Q3: Budget */}
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-5 font-medium">03 — Budget range</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {BUDGETS.map((b, i) => (
+                  <button
+                    key={b}
+                    onClick={() => setBudget(i)}
+                    className={`p-5 border transition-all duration-300 text-center ${
+                      budget === i 
+                        ? "border-[var(--gold)] bg-[var(--gold)]/5" 
+                        : "border-border/50 hover:border-foreground/20"
+                    }`}
+                  >
+                    <span className="block text-sm font-medium">{b}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="text-center pt-4">
+              <button
+                disabled={!vibe || !landscape || budget === null}
+                onClick={handleMatchmaker}
+                className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] font-medium px-10 py-4 bg-foreground text-background hover:bg-foreground/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Find My Destination <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ═══ SECTION 4: COMMUNITY WALL ═══ */}
-      <section className="py-16 md:py-24 overflow-hidden">
-        {/* Section Header */}
-        <div className="text-center mb-16 max-w-6xl mx-auto px-4">
-          <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 mb-4">
-            <span>📌</span> Pinned by Travelers Like You
-          </div>
-          <h2 className="text-3xl md:text-5xl font-extrabold mb-3 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 bg-clip-text text-transparent">Community Wall of Fame</h2>
-          <p className="text-muted-foreground text-lg">Real memories. Real adventures. Get inspired!</p>
+      <section className="py-20 md:py-28 overflow-hidden">
+        <div className="max-w-6xl mx-auto px-6 text-center mb-16">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--gold)] font-medium mb-3">From our community</p>
+          <h2 className="font-serif text-3xl md:text-5xl tracking-tight mb-3">Traveler's Wall</h2>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Real journeys, real memories. Browse trips shared by fellow explorers.
+          </p>
         </div>
 
         {loadingCommunity ? (
-          <div className="text-center py-20 text-muted-foreground">Loading memories...</div>
+          <div className="text-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-[var(--gold)] mx-auto mb-4" />
+            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Loading memories</p>
+          </div>
         ) : communityTrips.length === 0 ? (
-          <div className="text-center py-20 bg-muted/30 rounded-2xl border border-dashed max-w-2xl mx-auto">
-            <ImageIcon className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-            <h3 className="text-xl font-bold mb-2">No public trips yet</h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Complete a trip and mark it as "Public" to pin it here and inspire other travelers!
+          <div className="max-w-lg mx-auto text-center py-20 border border-dashed border-border/50">
+            <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground/20 mb-5" />
+            <h3 className="font-serif text-2xl mb-2">The wall awaits</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              Complete a trip and mark it as "Public" in your Memories to pin it here for other travelers.
             </p>
           </div>
         ) : (
-          /* Cork Board Wall */
+          /* Polaroid Wall */
           <div
-            className="relative w-full min-h-[600px] rounded-3xl py-16 px-8 md:px-16"
+            className="relative w-full min-h-[600px] py-16 px-6 md:px-12"
             style={{
-              background: 'radial-gradient(ellipse at top, #1a0e05 0%, #0d0705 100%)',
-              boxShadow: 'inset 0 0 120px rgba(0,0,0,0.8)',
+              background: 'radial-gradient(ellipse at center top, hsl(var(--card) / 0.8) 0%, hsl(var(--background)) 100%)',
             }}
           >
-            {/* Ambient light spots */}
-            <div className="absolute top-10 left-1/4 w-96 h-96 bg-amber-600/5 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-10 right-1/4 w-64 h-64 bg-orange-600/5 rounded-full blur-3xl pointer-events-none" />
-
-            {/* String lights row */}
-            <div className="absolute top-0 left-0 right-0 flex justify-around items-start pointer-events-none overflow-hidden h-8">
-              {Array.from({ length: 20 }).map((_, i) => (
-                <div key={i} className="flex flex-col items-center">
-                  <div className="w-px h-4 bg-white/10" />
-                  <div className="w-2 h-2 rounded-full bg-amber-300/80 shadow-[0_0_6px_2px_rgba(251,191,36,0.4)]" style={{ animationDelay: `${i * 0.15}s` }} />
-                </div>
-              ))}
-            </div>
+            {/* Ambient glow */}
+            <div className="absolute top-20 left-1/4 w-72 h-72 bg-[var(--gold)]/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-20 right-1/4 w-56 h-56 bg-[var(--gold)]/3 rounded-full blur-3xl pointer-events-none" />
 
             {/* Polaroid Grid */}
-            <div className="flex flex-wrap justify-center gap-8 md:gap-12 pt-6">
+            <div className="flex flex-wrap justify-center gap-8 md:gap-10 max-w-5xl mx-auto">
               {communityTrips.map((trip, index) => {
-                // Alternating slight rotations for a natural pinned look
-                const rotations = [-3, 2, -1.5, 3, -2, 1, -3.5, 2.5]
+                const rotations = [-2.5, 1.8, -1.2, 2.5, -1.8, 0.8, -3, 2]
                 const rotation = rotations[index % rotations.length]
-                const pinColors = ['bg-red-500', 'bg-blue-500', 'bg-yellow-400', 'bg-green-500', 'bg-purple-500', 'bg-pink-500']
-                const pinColor = pinColors[index % pinColors.length]
-                const tapeRotations = [-8, 5, -12, 7, -6, 10]
-                const tapeRot = tapeRotations[index % tapeRotations.length]
 
                 return (
                   <motion.div
                     key={trip.id}
-                    initial={{ opacity: 0, y: 40, rotate: rotation - 5 }}
+                    initial={{ opacity: 0, y: 40, rotate: rotation - 3 }}
                     whileInView={{ opacity: 1, y: 0, rotate: rotation }}
                     whileHover={{ scale: 1.05, rotate: 0, zIndex: 10 }}
                     viewport={{ once: true }}
-                    transition={{ type: "spring", stiffness: 200, damping: 20, delay: index * 0.08 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 20, delay: index * 0.06 }}
                     className="relative cursor-pointer"
                     style={{ zIndex: index }}
                   >
-                    {/* Thumb Pin */}
-                    <div className={`absolute -top-3 left-1/2 -translate-x-1/2 z-20 w-5 h-5 ${pinColor} rounded-full shadow-lg border-2 border-white/30`}
-                      style={{ boxShadow: `0 2px 8px rgba(0,0,0,0.5)` }}
+                    {/* Gold tape strip */}
+                    <div
+                      className="absolute -top-3 left-1/2 -translate-x-1/2 w-14 h-5 bg-[var(--gold)]/15 border border-[var(--gold)]/20 backdrop-blur-sm z-20"
+                      style={{ transform: `translateX(-50%) rotate(${[-5, 3, -8, 6][index % 4]}deg)` }}
                     />
 
                     {/* Polaroid Frame */}
                     <div
-                      className="bg-white shadow-2xl"
+                      className="bg-card border border-border/40 shadow-2xl"
                       style={{
                         width: trip.photos.length > 0 ? '220px' : '200px',
-                        padding: '12px',
-                        paddingBottom: trip.review_text ? '80px' : '52px',
-                        boxShadow: `${rotation > 0 ? '-' : ''}4px 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.1)`,
+                        padding: '10px',
+                        paddingBottom: trip.review_text ? '76px' : '50px',
                       }}
                     >
-                      {/* Tape strip on top */}
-                      <div
-                        className="absolute -top-3 left-1/2 -translate-x-1/2 w-16 h-5 bg-amber-100/60 backdrop-blur-sm"
-                        style={{ transform: `translateX(-50%) rotate(${tapeRot}deg)`, opacity: 0.7 }}
-                      />
-
                       {/* Photo */}
                       {trip.photos.length > 0 ? (
-                        <div className="relative overflow-hidden bg-gray-200" style={{ aspectRatio: '4/3' }}>
+                        <div className="relative overflow-hidden bg-muted" style={{ aspectRatio: '4/3' }}>
                           <img
                             src={trip.photos[0].photo_url}
                             alt={trip.destination}
                             className="w-full h-full object-cover"
                             crossOrigin="anonymous"
                           />
-                          {/* Extra thumbnails stacked at corner */}
                           {trip.photos.length > 1 && (
                             <div className="absolute bottom-1.5 right-1.5 flex gap-1">
                               {trip.photos.slice(1, 3).map((p: any, i: number) => (
-                                <img key={i} src={p.photo_url} alt="" className="w-8 h-8 object-cover border-2 border-white shadow-sm" crossOrigin="anonymous" />
+                                <img key={i} src={p.photo_url} alt="" className="w-7 h-7 object-cover border border-card shadow-sm" crossOrigin="anonymous" />
                               ))}
                               {trip.photos.length > 3 && (
-                                <div className="w-8 h-8 bg-black/60 border-2 border-white flex items-center justify-center text-white text-xs font-bold">
+                                <div className="w-7 h-7 bg-foreground/60 border border-card flex items-center justify-center text-background text-[9px] font-bold">
                                   +{trip.photos.length - 3}
                                 </div>
                               )}
@@ -465,44 +428,38 @@ export default function ExplorePage() {
                           )}
                         </div>
                       ) : (
-                        <div className="bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center text-5xl" style={{ aspectRatio: '4/3' }}>
-                          ✈️
+                        <div className="bg-muted/50 flex items-center justify-center text-4xl" style={{ aspectRatio: '4/3' }}>
+                          <Plane className="h-10 w-10 text-muted-foreground/20" />
                         </div>
                       )}
 
-                      {/* Caption area (white bottom of polaroid) */}
+                      {/* Caption */}
                       <div className="absolute bottom-0 left-0 right-0 px-3 pb-3 pt-2">
-                        <p className="font-bold text-gray-800 capitalize text-sm truncate" style={{ fontFamily: 'Georgia, serif' }}>
-                          {trip.destination}
-                        </p>
-                        <p className="text-gray-500 text-xs mt-0.5" style={{ fontFamily: 'Georgia, serif' }}>
-                          {trip.duration_days} days {trip.budget_range ? `· ${trip.budget_range}` : ''}
+                        <p className="font-serif capitalize text-sm truncate text-foreground">{trip.destination}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-[0.1em]">
+                          {trip.duration_days} days {trip.budget_range ? `· ₹${parseInt(trip.budget_range).toLocaleString('en-IN')}` : ''}
                         </p>
                         {trip.review_rating > 0 && (
                           <div className="flex gap-0.5 mt-1">
                             {Array.from({ length: 5 }).map((_, i) => (
-                              <span key={i} className={`text-xs ${i < trip.review_rating ? 'text-yellow-500' : 'text-gray-300'}`}>★</span>
+                              <span key={i} className={`text-[10px] ${i < trip.review_rating ? 'text-[var(--gold)]' : 'text-muted-foreground/30'}`}>★</span>
                             ))}
                           </div>
                         )}
                         {trip.review_text && (
-                          <p className="text-gray-500 text-xs mt-1 italic line-clamp-2" style={{ fontFamily: 'Georgia, serif' }}>
+                          <p className="text-muted-foreground text-[10px] mt-1 italic line-clamp-2 font-serif">
                             "{trip.review_text}"
                           </p>
                         )}
                       </div>
                     </div>
-
-                    {/* Drop shadow on the wall */}
-                    <div className="absolute inset-0 blur-xl bg-black/20 -z-10 scale-90 translate-y-4" />
                   </motion.div>
                 )
               })}
             </div>
 
-            {/* Bottom attribution */}
-            <p className="text-center text-white/20 text-xs mt-16 font-medium tracking-widest uppercase">
-              📌 Pin yours by marking a trip as Public in Memories
+            <p className="text-center text-muted-foreground/30 text-[10px] mt-16 uppercase tracking-[0.2em]">
+              Pin yours by marking a trip as Public in Memories
             </p>
           </div>
         )}

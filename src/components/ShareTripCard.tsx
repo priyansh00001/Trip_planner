@@ -64,13 +64,13 @@ export default function ShareTripCard({ plan, trip }: ShareTripCardProps) {
   return (
     <>
       {/* Inline trigger button that replaces the big ugly card */}
-      <div className="w-full flex justify-center mb-10 no-print">
-        <Button 
+      <div className="w-full flex justify-center mb-10 mt-8 no-print">
+        <button 
           onClick={() => setIsOpen(true)}
-          className="rounded-full shadow-md bg-white text-black hover:bg-gray-100 border border-gray-200 dark:bg-zinc-900 dark:text-white dark:border-zinc-800 dark:hover:bg-zinc-800 transition-all px-8 h-12"
+          className="flex items-center gap-3 text-[10px] uppercase tracking-[0.2em] font-medium px-8 py-4 border border-[var(--gold)]/40 hover:bg-[var(--gold)]/5 transition-all text-foreground"
         >
-          <Share2 className="h-4 w-4 mr-2 text-indigo-500" /> Share This Itinerary
-        </Button>
+          <Share2 className="h-4 w-4 text-[var(--gold)]" /> Share This Itinerary
+        </button>
       </div>
 
       {/* Full Screen Modal */}

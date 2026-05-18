@@ -12,16 +12,17 @@ interface DailyWeatherProps {
 
 // Map WMO Weather Codes to Beautiful Lucide Icons & Descriptions
 // Source: https://open-meteo.com/en/docs
+// Soft Luxury minimal styling for weather icons
 const getWeatherDetails = (code: number) => {
-  if (code === 0) return { icon: Sun, label: "Clear", color: "text-amber-500", bg: "bg-amber-100 dark:bg-amber-900/30 border-amber-200" }
-  if (code <= 3) return { icon: Cloud, label: "Cloudy", color: "text-sky-500", bg: "bg-sky-100 dark:bg-sky-900/30 border-sky-200" }
-  if (code === 45 || code === 48) return { icon: CloudFog, label: "Foggy", color: "text-slate-500", bg: "bg-slate-100 dark:bg-slate-900/30 border-slate-200" }
-  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return { icon: CloudRain, label: "Rain", color: "text-blue-500", bg: "bg-blue-100 dark:bg-blue-900/30 border-blue-200" }
-  if (code >= 71 && code <= 77) return { icon: Snowflake, label: "Snow", color: "text-indigo-400", bg: "bg-indigo-100 dark:bg-indigo-900/30 border-indigo-200" }
-  if (code >= 95) return { icon: CloudLightning, label: "Storm", color: "text-purple-600", bg: "bg-purple-100 dark:bg-purple-900/30 border-purple-200" }
+  if (code === 0) return { icon: Sun, label: "Clear" }
+  if (code <= 3) return { icon: Cloud, label: "Cloudy" }
+  if (code === 45 || code === 48) return { icon: CloudFog, label: "Foggy" }
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return { icon: CloudRain, label: "Rain" }
+  if (code >= 71 && code <= 77) return { icon: Snowflake, label: "Snow" }
+  if (code >= 95) return { icon: CloudLightning, label: "Storm" }
   
   // Fallback
-  return { icon: Sun, label: "Sunny", color: "text-amber-500", bg: "bg-amber-100 border-amber-200" }
+  return { icon: Sun, label: "Sunny" }
 }
 
 export default function DailyWeather({ lat, lng, dayOffset, startDate }: DailyWeatherProps) {
@@ -105,11 +106,11 @@ export default function DailyWeather({ lat, lng, dayOffset, startDate }: DailyWe
 
   return (
     <div 
-      className={`flex items-center gap-2 ml-auto px-3.5 py-1.5 rounded-full border shadow-sm transition-all hover:scale-105 cursor-pointer ${details.bg}`}
+      className={`flex items-center gap-2 ml-auto px-4 py-2 rounded-none border border-foreground/20 bg-transparent shadow-none transition-colors hover:bg-foreground hover:text-background cursor-pointer group text-foreground`}
       title={`${details.label} - High of ${data.temp}°C`}
     >
-      <Icon className={`h-4 w-4 ${details.color}`} />
-      <span className={`text-sm font-bold ${details.color} drop-shadow-sm`}>
+      <Icon className={`h-4 w-4 opacity-70 group-hover:opacity-100`} />
+      <span className={`text-[10px] font-medium tracking-widest uppercase`}>
         {data.temp}°C
       </span>
     </div>

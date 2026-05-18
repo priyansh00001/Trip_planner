@@ -6,20 +6,19 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   Landmark, Coffee, ShoppingBag, TreePine, Palette, UtensilsCrossed,
   Loader2, Check, ArrowRight, MapPin, Star, Search, Clock, X,
-  ChevronDown, AlertCircle, Sparkles, Eye
+  AlertCircle, Eye
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
 import AuthModal from "@/components/AuthModal"
 
 // ─── Category Config ─────────────────────────────────────
 const CATEGORIES = [
-  { id: "landmarks", label: "Landmarks", icon: Landmark, color: "from-amber-500 to-orange-500" },
-  { id: "cafes", label: "Cafes & Restaurants", icon: Coffee, color: "from-emerald-500 to-teal-500" },
-  { id: "markets", label: "Markets & Shopping", icon: ShoppingBag, color: "from-pink-500 to-rose-500" },
-  { id: "parks", label: "Parks & Nature", icon: TreePine, color: "from-green-500 to-lime-500" },
-  { id: "culture", label: "Culture & Museums", icon: Palette, color: "from-purple-500 to-violet-500" },
-  { id: "food", label: "Street Food Zones", icon: UtensilsCrossed, color: "from-red-500 to-orange-500" },
+  { id: "landmarks", label: "Landmarks", icon: Landmark },
+  { id: "cafes", label: "Cafes & Restaurants", icon: Coffee },
+  { id: "markets", label: "Markets & Shopping", icon: ShoppingBag },
+  { id: "parks", label: "Parks & Nature", icon: TreePine },
+  { id: "culture", label: "Culture & Museums", icon: Palette },
+  { id: "food", label: "Street Food Zones", icon: UtensilsCrossed },
 ]
 
 interface Place {
@@ -38,20 +37,11 @@ interface Place {
 
 // ─── Place Card Component ────────────────────────────────
 function PlaceCard({
-  place,
-  isSelected,
-  onToggle,
-  onDetail,
-  index,
+  place, isSelected, onToggle, onDetail, index,
 }: {
-  place: Place
-  isSelected: boolean
-  onToggle: () => void
-  onDetail: () => void
-  index: number
+  place: Place; isSelected: boolean; onToggle: () => void; onDetail: () => void; index: number
 }) {
   const photo = place.photos?.[0]
-  // Vary card heights for masonry effect
   const heights = ["h-64", "h-72", "h-56", "h-80", "h-60", "h-68"]
   const cardHeight = heights[index % heights.length]
 
@@ -60,14 +50,14 @@ function PlaceCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.05 }}
-      className="break-inside-avoid mb-4"
+      className="break-inside-avoid mb-5"
     >
       <div
         onClick={onToggle}
-        className={`relative group cursor-pointer rounded-2xl overflow-hidden border-2 transition-all duration-300 ${
+        className={`relative group cursor-pointer overflow-hidden border transition-all duration-300 ${
           isSelected
-            ? "border-indigo-500 shadow-xl shadow-indigo-500/20 scale-[1.02]"
-            : "border-transparent hover:border-indigo-300/50 hover:shadow-lg"
+            ? "border-[var(--gold)] shadow-lg"
+            : "border-border/30 hover:border-foreground/20 hover:shadow-md"
         }`}
       >
         {/* Photo */}
@@ -80,8 +70,8 @@ function PlaceCard({
               loading="lazy"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-              <MapPin className="h-12 w-12 text-muted-foreground/30" />
+            <div className="w-full h-full flex items-center justify-center bg-muted/50">
+              <MapPin className="h-10 w-10 text-muted-foreground/15" />
             </div>
           )}
 
@@ -95,9 +85,9 @@ function PlaceCard({
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0 }}
-                className="absolute top-3 right-3 h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center shadow-lg"
+                className="absolute top-3 right-3 h-7 w-7 bg-[var(--gold)] flex items-center justify-center"
               >
-                <Check className="h-5 w-5 text-white" strokeWidth={3} />
+                <Check className="h-4 w-4 text-background" strokeWidth={3} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -105,33 +95,33 @@ function PlaceCard({
           {/* Detail button */}
           <button
             onClick={(e) => { e.stopPropagation(); onDetail(); }}
-            className="absolute top-3 left-3 h-8 w-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-3 left-3 h-7 w-7 bg-black/40 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            <Eye className="h-4 w-4 text-white" />
+            <Eye className="h-3.5 w-3.5 text-white" />
           </button>
 
           {/* Content overlay */}
           <div className="absolute bottom-0 left-0 right-0 p-4">
-            <h3 className="font-bold text-white text-lg leading-tight drop-shadow-lg">
+            <h3 className="font-serif text-white text-lg leading-tight drop-shadow-lg">
               {place.name}
             </h3>
-            <p className="text-white/70 text-xs mt-1 line-clamp-2">{place.description}</p>
+            <p className="text-white/60 text-[10px] mt-1 line-clamp-2">{place.description}</p>
 
             <div className="flex items-center gap-3 mt-2">
               {place.rating > 0 && (
-                <div className="flex items-center gap-1 bg-black/30 backdrop-blur-sm rounded-full px-2 py-0.5">
-                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                  <span className="text-xs font-bold text-white">{place.rating}</span>
+                <div className="flex items-center gap-1 text-[10px]">
+                  <Star className="h-3 w-3 fill-[var(--gold)] text-[var(--gold)]" />
+                  <span className="text-white font-medium">{place.rating}</span>
                 </div>
               )}
               {place.timing && (
-                <div className="flex items-center gap-1 text-white/60">
+                <div className="flex items-center gap-1 text-white/50 text-[10px]">
                   <Clock className="h-3 w-3" />
-                  <span className="text-[10px]">{place.timing}</span>
+                  <span>{place.timing}</span>
                 </div>
               )}
               {place.priceLevel && place.priceLevel > 0 && (
-                <span className="text-xs text-white/60">
+                <span className="text-[10px] text-white/50">
                   {"₹".repeat(place.priceLevel)}
                 </span>
               )}
@@ -139,10 +129,10 @@ function PlaceCard({
           </div>
         </div>
 
-        {/* Signature dish for food places */}
+        {/* Signature dish */}
         {place.signatureDish && (
-          <div className="px-4 py-2 bg-background border-t text-xs text-muted-foreground">
-            🍽️ Must try: <span className="font-semibold text-foreground">{place.signatureDish}</span>
+          <div className="px-4 py-2.5 bg-card border-t border-border/30 text-[10px] text-muted-foreground">
+            Must try: <span className="font-medium text-foreground">{place.signatureDish}</span>
           </div>
         )}
       </div>
@@ -152,15 +142,9 @@ function PlaceCard({
 
 // ─── Place Detail Modal ──────────────────────────────────
 function PlaceDetailModal({
-  place,
-  isSelected,
-  onToggle,
-  onClose,
+  place, isSelected, onToggle, onClose,
 }: {
-  place: Place
-  isSelected: boolean
-  onToggle: () => void
-  onClose: () => void
+  place: Place; isSelected: boolean; onToggle: () => void; onClose: () => void
 }) {
   return (
     <motion.div
@@ -171,43 +155,35 @@ function PlaceDetailModal({
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, y: 20 }}
+        initial={{ scale: 0.95, y: 20 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        className="bg-background rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl"
+        exit={{ scale: 0.95, y: 20 }}
+        className="bg-card border border-border/50 max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Photo carousel */}
         <div className="relative h-64 bg-muted">
           {place.photos?.[0]?.url ? (
-            <img
-              src={place.photos[0].url}
-              alt={place.name}
-              className="w-full h-full object-cover"
-            />
+            <img src={place.photos[0].url} alt={place.name} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <MapPin className="h-16 w-16 text-muted-foreground/20" />
+              <MapPin className="h-14 w-14 text-muted-foreground/15" />
             </div>
           )}
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/50 flex items-center justify-center"
-          >
+          <button onClick={onClose} className="absolute top-3 right-3 h-8 w-8 bg-black/50 flex items-center justify-center">
             <X className="h-4 w-4 text-white" />
           </button>
           {place.photos?.[0]?.credit && (
-            <div className="absolute bottom-2 right-2 text-[10px] text-white/50 bg-black/30 px-2 py-0.5 rounded-full">
-              📷 {place.photos[0].credit}
+            <div className="absolute bottom-2 right-2 text-[9px] text-white/40 bg-black/30 px-2 py-0.5">
+              {place.photos[0].credit}
             </div>
           )}
         </div>
 
         <div className="p-6 space-y-4">
           <div>
-            <h2 className="text-2xl font-bold">{place.name}</h2>
+            <h2 className="font-serif text-2xl">{place.name}</h2>
             {place.address && (
-              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1 uppercase tracking-[0.1em]">
                 <MapPin className="h-3 w-3" /> {place.address}
               </p>
             )}
@@ -217,57 +193,50 @@ function PlaceDetailModal({
 
           <div className="flex flex-wrap gap-3">
             {place.rating > 0 && (
-              <div className="flex items-center gap-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 px-3 py-1.5 rounded-lg text-sm font-medium">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                {place.rating}
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] px-3 py-1.5 border border-border/50">
+                <Star className="h-3 w-3 fill-[var(--gold)] text-[var(--gold)]" /> {place.rating}
               </div>
             )}
             {place.timing && (
-              <div className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-3 py-1.5 rounded-lg text-sm font-medium">
-                <Clock className="h-4 w-4" />
-                {place.timing}
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] px-3 py-1.5 border border-border/50">
+                <Clock className="h-3 w-3" /> {place.timing}
               </div>
             )}
             {place.priceLevel && place.priceLevel > 0 && (
-              <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-3 py-1.5 rounded-lg text-sm font-medium">
+              <div className="text-[10px] px-3 py-1.5 border border-border/50">
                 {"₹".repeat(place.priceLevel)} Price
               </div>
             )}
           </div>
 
           {place.signatureDish && (
-            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4">
-              <p className="text-sm font-semibold text-orange-800 dark:text-orange-300">
-                🍽️ Signature Dish: {place.signatureDish}
+            <div className="border border-[var(--gold)]/20 bg-[var(--gold)]/5 p-4">
+              <p className="text-sm font-medium">
+                Signature Dish: {place.signatureDish}
               </p>
             </div>
           )}
 
-          {/* Action buttons */}
           <div className="flex gap-3 pt-2">
-            <Button
+            <button
               onClick={onToggle}
-              className={`flex-1 ${
+              className={`flex-1 flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.15em] font-medium py-3 transition-all ${
                 isSelected
-                  ? "bg-indigo-500 hover:bg-indigo-600"
-                  : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90"
+                  ? "bg-[var(--gold)] text-background"
+                  : "bg-foreground text-background hover:bg-foreground/90"
               }`}
             >
-              {isSelected ? (
-                <><Check className="h-4 w-4 mr-2" /> Selected</>
-              ) : (
-                <><Sparkles className="h-4 w-4 mr-2" /> Add to My Trip</>
-              )}
-            </Button>
-            <Button
-              variant="outline"
+              {isSelected ? <><Check className="h-3.5 w-3.5" /> Selected</> : <>Add to My Trip</>}
+            </button>
+            <button
               onClick={() => {
                 const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' ' + place.address)}`
                 window.open(url, '_blank')
               }}
+              className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] font-medium px-4 py-3 border border-border/50 hover:border-foreground/30 transition-all"
             >
-              <MapPin className="h-4 w-4 mr-1" /> Maps
-            </Button>
+              <MapPin className="h-3 w-3" /> Maps
+            </button>
           </div>
         </div>
       </motion.div>
@@ -293,33 +262,18 @@ export default function PickPlacesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [continuing, setContinuing] = useState(false)
 
-  // Load trip data
   useEffect(() => {
     async function loadTrip() {
       if (!params?.tripId) return
-
       if (params.tripId === "anonymous") {
         const stored = localStorage.getItem("anonymous_trip")
-        if (!stored) {
-          router.push("/trip-input")
-          return
-        }
-        const parsed = JSON.parse(stored)
-        setTrip({ ...parsed, id: "anonymous" })
+        if (!stored) { router.push("/trip-input"); return }
+        setTrip({ ...JSON.parse(stored), id: "anonymous" })
         setLoading(false)
       } else {
         const supabase = createClient()
-        const { data, error } = await supabase
-          .from('trips')
-          .select('*')
-          .eq('id', params.tripId)
-          .single()
-
-        if (error || !data) {
-          setError("Could not load trip data.")
-          setLoading(false)
-          return
-        }
+        const { data, error } = await supabase.from('trips').select('*').eq('id', params.tripId).single()
+        if (error || !data) { setError("Could not load trip data."); setLoading(false); return }
         setTrip(data)
         setLoading(false)
       }
@@ -327,32 +281,21 @@ export default function PickPlacesPage() {
     loadTrip()
   }, [params, router])
 
-  // Fetch places for active category
   const fetchPlaces = useCallback(async (category: string) => {
     if (!trip?.destination || placesCache[category]) return
-
     setLoadingCategory(true)
     try {
-      const res = await fetch(
-        `/api/places/search?city=${encodeURIComponent(trip.destination)}&category=${category}`
-      )
+      const res = await fetch(`/api/places/search?city=${encodeURIComponent(trip.destination)}&category=${category}`)
       const data = await res.json()
-      if (data.places) {
-        setPlacesCache(prev => ({ ...prev, [category]: data.places }))
-      }
-    } catch (err) {
-      console.error("Failed to fetch places:", err)
-    }
+      if (data.places) setPlacesCache(prev => ({ ...prev, [category]: data.places }))
+    } catch (err) { console.error("Failed to fetch places:", err) }
     setLoadingCategory(false)
   }, [trip?.destination, placesCache])
 
   useEffect(() => {
-    if (trip?.destination) {
-      fetchPlaces(activeCategory)
-    }
+    if (trip?.destination) fetchPlaces(activeCategory)
   }, [activeCategory, trip?.destination, fetchPlaces])
 
-  // Toggle place selection
   const togglePlace = (place: Place) => {
     setSelectedPlaces(prev => {
       const exists = prev.find(p => p.name === place.name)
@@ -360,19 +303,12 @@ export default function PickPlacesPage() {
       return [...prev, place]
     })
   }
-
   const isSelected = (place: Place) => selectedPlaces.some(p => p.name === place.name)
 
-  // Continue to generate itinerary
   const handleContinue = async () => {
     if (!trip?.id || selectedPlaces.length === 0) return
     setContinuing(true)
-
-    if (params?.tripId === "anonymous") {
-      setIsAuthModalOpen(true)
-      setContinuing(false)
-      return
-    }
+    if (params?.tripId === "anonymous") { setIsAuthModalOpen(true); setContinuing(false); return }
 
     const supabase = createClient()
     await supabase
@@ -381,37 +317,29 @@ export default function PickPlacesPage() {
         plan_data: {
           ...trip.plan_data,
           selected_places: selectedPlaces.map(p => ({
-            name: p.name,
-            description: p.description,
-            rating: p.rating,
-            category: p.category,
-            lat: p.lat,
-            lng: p.lng,
-            timing: p.timing,
-            signatureDish: p.signatureDish,
-            address: p.address,
-            priceLevel: p.priceLevel,
+            name: p.name, description: p.description, rating: p.rating, category: p.category,
+            lat: p.lat, lng: p.lng, timing: p.timing, signatureDish: p.signatureDish,
+            address: p.address, priceLevel: p.priceLevel,
           })),
         },
         status: 'generating_itinerary',
       })
       .eq('id', trip.id)
-
     router.push(`/generate/${trip.id}`)
   }
 
-  // Filter places by search
   const currentPlaces = (placesCache[activeCategory] || []).filter(p =>
     !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
-
   const minPlaces = Math.max(5, (trip?.duration_days || 3) * 3)
 
-  // ─── Loading / Error States ────────────────────────────
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--gold)] mx-auto mb-4" />
+          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Loading trip details</p>
+        </div>
       </div>
     )
   }
@@ -419,57 +347,47 @@ export default function PickPlacesPage() {
   if (error) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center p-4">
-        <div className="max-w-md text-center p-8 border rounded-xl bg-background shadow-lg">
-          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
-          <p className="text-muted-foreground mb-6">{error}</p>
-          <Button onClick={() => router.push('/dashboard')}>Back to Dashboard</Button>
+        <div className="max-w-md text-center p-10 border border-border/50">
+          <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-4" />
+          <h2 className="font-serif text-2xl mb-2">Something went wrong</h2>
+          <p className="text-sm text-muted-foreground mb-6">{error}</p>
+          <button onClick={() => router.push('/dashboard')} className="text-[10px] uppercase tracking-[0.2em] font-medium px-6 py-3 bg-foreground text-background">
+            Back to Dashboard
+          </button>
         </div>
       </div>
     )
   }
 
-  // ─── Main Render ───────────────────────────────────────
   return (
     <div className="min-h-screen bg-background pb-28">
 
-      {/* Hero Header */}
-      <div className="w-full bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 pt-14 pb-12 px-6 relative overflow-hidden">
-        <div className="absolute -top-20 -right-20 w-72 h-72 bg-white/5 rounded-full blur-2xl" />
-        <div className="absolute -bottom-16 -left-16 w-56 h-56 bg-white/5 rounded-full blur-2xl" />
-
-        <div className="max-w-5xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium text-white mb-5 backdrop-blur-md">
-            <Sparkles className="h-4 w-4 mr-2" />
-            Step 2 of 3 — Pick Your Places
-          </div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mb-3">
-            What do you want to explore in {trip?.destination}?
+      {/* Editorial Header */}
+      <div className="border-b border-border/50 py-16 px-6">
+        <div className="max-w-5xl mx-auto text-center">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--gold)] font-medium mb-4">
+            Step 2 of 3 — Curate Your Experiences
+          </p>
+          <h1 className="font-serif text-4xl md:text-5xl tracking-tight mb-4">
+            What excites you in <span className="italic">{trip?.destination}</span>?
           </h1>
-          <p className="text-white/70 text-lg max-w-xl mx-auto">
-            Browse and select places you'd love to visit. We'll build your perfect itinerary around your picks.
+          <p className="text-muted-foreground text-sm max-w-xl mx-auto">
+            Browse and select places you'd love to visit. We'll weave them into your perfect itinerary.
           </p>
 
-          <div className="flex flex-wrap justify-center gap-3 mt-5 text-white/80 font-medium text-sm">
-            <div className="flex items-center bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
-              <MapPin className="h-4 w-4 mr-2" /> {trip?.destination}
-            </div>
-            <div className="flex items-center bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
-              📅 {trip?.duration_days} Days
-            </div>
-            <div className="flex items-center bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
-              ✅ {selectedPlaces.length} Selected
-            </div>
+          <div className="flex flex-wrap justify-center gap-3 mt-6 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+            <span className="px-4 py-2 border border-border/50">{trip?.destination}</span>
+            <span className="px-4 py-2 border border-border/50">{trip?.duration_days} Days</span>
+            <span className="px-4 py-2 border border-border/50">{selectedPlaces.length} Selected</span>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8">
+      <div className="max-w-6xl mx-auto px-6 pt-8">
 
         {/* Category Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
           {CATEGORIES.map(cat => {
-            const Icon = cat.icon
             const count = selectedPlaces.filter(p => p.category === cat.id).length
             const isActive = activeCategory === cat.id
 
@@ -477,17 +395,16 @@ export default function PickPlacesPage() {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+                className={`flex items-center gap-2 px-5 py-2.5 text-[10px] uppercase tracking-[0.15em] font-medium whitespace-nowrap border transition-all ${
                   isActive
-                    ? "bg-gradient-to-r " + cat.color + " text-white shadow-lg"
-                    : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    ? "bg-foreground text-background border-foreground"
+                    : "border-border/50 text-muted-foreground hover:text-foreground hover:border-foreground/30"
                 }`}
               >
-                <Icon className="h-4 w-4" />
                 {cat.label}
                 {count > 0 && (
-                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    isActive ? "bg-white/20" : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
+                  <span className={`ml-1 px-1.5 py-0.5 text-[9px] font-bold ${
+                    isActive ? "bg-background/20" : "bg-[var(--gold)]/10 text-[var(--gold)]"
                   }`}>
                     {count}
                   </span>
@@ -498,20 +415,17 @@ export default function PickPlacesPage() {
         </div>
 
         {/* Search Bar */}
-        <div className="relative mb-6">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="relative mb-8">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40" />
           <input
             type="text"
             placeholder={`Search places in ${trip?.destination}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-12 rounded-xl border bg-background pl-11 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+            className="w-full h-12 border border-border/50 bg-transparent pl-11 pr-4 text-sm focus:outline-none focus:border-[var(--gold)] transition-all"
           />
           {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2"
-            >
+            <button onClick={() => setSearchQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2">
               <X className="h-4 w-4 text-muted-foreground" />
             </button>
           )}
@@ -520,16 +434,16 @@ export default function PickPlacesPage() {
         {/* Masonry Grid */}
         {loadingCategory ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
-            <p className="text-muted-foreground">Discovering amazing places...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-[var(--gold)]" />
+            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Discovering places</p>
           </div>
         ) : currentPlaces.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-            <MapPin className="h-12 w-12 text-muted-foreground/30" />
-            <p className="text-muted-foreground">No places found. Try a different category.</p>
+            <MapPin className="h-10 w-10 text-muted-foreground/15" />
+            <p className="text-sm text-muted-foreground">No places found. Try a different category.</p>
           </div>
         ) : (
-          <div className="columns-1 sm:columns-2 lg:columns-3 gap-4">
+          <div className="columns-1 sm:columns-2 lg:columns-3 gap-5">
             {currentPlaces.map((place, i) => (
               <PlaceCard
                 key={place.name + i}
@@ -558,48 +472,42 @@ export default function PickPlacesPage() {
 
       <AnimatePresence>
         {isAuthModalOpen && (
-          <AuthModal
-            isOpen={isAuthModalOpen}
-            onClose={() => setIsAuthModalOpen(false)}
-            selectedPlaces={selectedPlaces}
-          />
+          <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} selectedPlaces={selectedPlaces} />
         )}
       </AnimatePresence>
 
       {/* Sticky Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border/50">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
-            <p className="text-sm font-bold">
+            <p className="text-sm font-medium">
               {selectedPlaces.length} place{selectedPlaces.length !== 1 ? 's' : ''} selected
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.1em]">
               {selectedPlaces.length < minPlaces
                 ? `Select at least ${minPlaces} for a ${trip?.duration_days}-day trip`
-                : "You're all set! Continue to generate your itinerary."
+                : "You're all set — continue to generate"
               }
             </p>
           </div>
           <div className="flex gap-3">
-            <Button
-              variant="outline"
-              size="sm"
+            <button
               onClick={() => router.push(`/generate/${trip?.id}`)}
-              className="hidden sm:flex"
+              className="hidden sm:flex items-center text-[10px] uppercase tracking-[0.15em] font-medium px-5 py-3 border border-border/50 text-muted-foreground hover:text-foreground transition-all"
             >
               Skip & Let AI Decide
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={handleContinue}
               disabled={selectedPlaces.length < 1 || continuing}
-              className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 shadow-lg px-6"
+              className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] font-medium px-6 py-3 bg-foreground text-background hover:bg-foreground/90 transition-all disabled:opacity-30"
             >
               {continuing ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Building...</>
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Building...</>
               ) : (
-                <><ArrowRight className="h-4 w-4 mr-2" /> Continue</>
+                <>Continue <ArrowRight className="h-3.5 w-3.5" /></>
               )}
-            </Button>
+            </button>
           </div>
         </div>
       </div>
