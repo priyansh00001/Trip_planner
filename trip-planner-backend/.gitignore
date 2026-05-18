@@ -1,0 +1,33 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# FAISS Vector Index Data
+data/faiss/*.faiss
+data/faiss/*.pkl
+
+# Testing & Cache
+.pytest_cache/
+.pytest_cache
+test_err.txt
+test_output.json
+output.txt
+hostelworld.html
+*.log
+
+# Editor & OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
