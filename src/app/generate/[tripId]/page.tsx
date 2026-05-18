@@ -20,6 +20,7 @@ export default function GeneratePage() {
   const router = useRouter()
   const params = useParams()
   const [currentStep, setCurrentStep] = useState(0)
+  const [dynamicStatus, setDynamicStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -57,15 +58,75 @@ export default function GeneratePage() {
           }),
         })
 
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || "Failed to generate AI plan")
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          throw new Error(errData.error || "Failed to generate AI plan")
+        }
+
+        // Consume the text/event-stream response chunk-by-chunk!
+        const reader = res.body?.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ""
+        let finalPlan: any = null
+
+        if (!reader) throw new Error("No response body to stream.")
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          
+          // Split buffer by lines to parse SSE event envelopes
+          const lines = buffer.split("\n")
+          // Retain the last incomplete line in the buffer
+          buffer = lines.pop() || ""
+
+          let currentEvent = ""
+
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed) continue
+
+            if (trimmed.startsWith("event: ")) {
+              currentEvent = trimmed.slice(7).trim()
+            } else if (trimmed.startsWith("data: ")) {
+              const dataStr = trimmed.slice(6).trim()
+              try {
+                const parsed = JSON.parse(dataStr)
+                if (currentEvent === "status") {
+                  // Update loading text dynamically with agent's message!
+                  if (parsed.message) {
+                    setDynamicStatus(parsed.message)
+                  }
+                } else if (currentEvent === "result") {
+                  finalPlan = parsed
+                }
+              } catch (e) {
+                console.warn("Failed to parse SSE data block:", dataStr, e)
+              }
+            }
+          }
+        }
+
+        // Parse remaining buffer if any
+        if (buffer.trim().startsWith("data: ")) {
+          const dataStr = buffer.trim().slice(6).trim()
+          try {
+            finalPlan = JSON.parse(dataStr)
+          } catch {}
+        }
+
+        if (!finalPlan) {
+          throw new Error("Generation completed but no plan data was received.")
+        }
 
         // 3. Save the generated JSON back to Supabase — preserve confirmed_stay
         const { error: updateError } = await supabase
           .from('trips')
           .update({
             plan_data: {
-              ...data.plan,
+              ...finalPlan,
               confirmed_stay: tripData.plan_data?.confirmed_stay ?? null,
             },
             status: 'completed'
@@ -121,7 +182,7 @@ export default function GeneratePage() {
             </div>
             
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4">
-              {loadingSteps[currentStep].text}
+              {dynamicStatus || loadingSteps[currentStep].text}
             </h2>
             
             <div className="flex items-center text-muted-foreground">
