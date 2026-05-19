@@ -220,7 +220,7 @@ async def get_destination_detail(slug: str):
         scraped_at = entry.get("scraped_at")
         if scraped_at:
             scraped_time = datetime.fromisoformat(scraped_at.replace("Z", "+00:00"))
-            age_hours = (datetime.utcnow() - scraped_time).total_seconds() / 3600
+            age_hours = (datetime.now(timezone.utc) - scraped_time).total_seconds() / 3600
             if age_hours < 3:
                 weather_cache = entry
 

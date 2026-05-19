@@ -4,7 +4,7 @@
 # If cache miss, calls OpenWeatherMap API and saves to cache.
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from agents.weather_agent import WeatherAgent
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ async def weather_node(state: dict) -> dict:
                     scraped_time = datetime.fromisoformat(
                         scraped_at.replace("Z", "+00:00")
                     )
-                    age_hours = (datetime.utcnow() - scraped_time).total_seconds() / 3600
+                    age_hours = (datetime.now(timezone.utc) - scraped_time).total_seconds() / 3600
 
                     if age_hours < 3:
                         logger.info(f"Weather cache hit for {req.destination}")
