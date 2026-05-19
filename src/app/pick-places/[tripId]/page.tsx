@@ -494,7 +494,13 @@ export default function PickPlacesPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => router.push(`/generate/${trip?.id}`)}
+              onClick={() => {
+                if (params?.tripId === "anonymous") {
+                  setIsAuthModalOpen(true)
+                } else {
+                  router.push(`/generate/${trip?.id}`)
+                }
+              }}
               className="hidden sm:flex items-center text-[10px] uppercase tracking-[0.15em] font-bold px-6 py-3.5 border border-border/50 text-muted-foreground hover:text-foreground rounded-full transition-all cursor-pointer"
             >
               Skip & Let AI Decide

@@ -234,4 +234,23 @@ This document contains a comprehensive record of all changes, structural refacto
 - **Pill Controls**: Converted all form controls and fields into elegant, rounded pill inputs.
 - **Clean Imports**: Removed the unused button imports.
 
+---
+
+## 🛠️ Windows Proactor Loop Policy, Weather timezone fixes & Anonymous Itinerary Guard
+
+### Detailed Changes
+
+#### [MODIFY] [main.py](file:///d:/AI/Trip_planner/trip-planner-backend/main.py)
+- **Windows Proactor Event Loop Policy**: Set `asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())` on Windows platform at backend startup to correctly support subprocess creation in asyncio, fixing critical Playwright launching issues (`NotImplementedError`) on Windows.
+
+#### [MODIFY] [weather_node.py](file:///d:/AI/Trip_planner/trip-planner-backend/graph/nodes/weather_node.py)
+- **Timezone-Aware Cache Comparison**: Upgraded weather cache age calculations to compare offset-aware `scraped_time` using `datetime.now(timezone.utc)` instead of offset-naive `datetime.utcnow()`, fully resolving `TypeError: can't subtract offset-naive and offset-aware datetimes`.
+
+#### [MODIFY] [destinations.py](file:///d:/AI/Trip_planner/trip-planner-backend/routers/destinations.py)
+- **Timezone-Aware Cache Comparison**: Applied the same `timezone.utc` datetime fix to destinations endpoints to guarantee seamless caching behavior.
+
+#### [MODIFY] [page.tsx](file:///d:/AI/Trip_planner/src/app/pick-places/%5BtripId%5D/page.tsx)
+- **Anonymous Itinerary Skip Guard**: Intercepted the "Skip & Let AI Decide" click handler on the experiences pick list. If the current trip ID is `"anonymous"`, it triggers the authentication modal (`AuthModal`) rather than routing to `/generate/anonymous` which would crash. This ensures guest users are seamlessly prompted to sign in/sign up before final itinerary generation, perfectly matching the "Continue" button's onboarding behavior.
+
+
 
