@@ -551,3 +551,32 @@
     border-top: 1px solid #e5e7eb;
   }
 }
+
+/* Glassmorphism & Modern-Vintage Hybrid Design Utilities */
+@utility glass-card {
+  background-color: color-mix(in oklch, var(--card) 60%, transparent) !important;
+  backdrop-filter: blur(14px) saturate(115%) !important;
+  border: 1px solid color-mix(in oklch, var(--gold) 20%, transparent) !important;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+@utility glass-panel {
+  background-color: color-mix(in oklch, var(--background) 70%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(120%) !important;
+  border: 1px solid color-mix(in oklch, var(--gold) 12%, transparent) !important;
+  box-shadow: 0 10px 45px -12px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+@utility hybrid-pill {
+  border-radius: 9999px;
+  background-color: color-mix(in oklch, var(--card) 45%, transparent) !important;
+  backdrop-filter: blur(8px) !important;
+  border: 1px solid color-mix(in oklch, var(--gold) 15%, transparent) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@utility hybrid-pill-active {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border-color: var(--primary) !important;
+}

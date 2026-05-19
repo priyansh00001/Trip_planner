@@ -58,12 +58,27 @@ export default function ExplorePage() {
   useEffect(() => {
     async function loadCommunity() {
       const supabase = createClient()
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("trips")
         .select("id, destination, duration_days, budget_range, review_rating, review_text, plan_data, created_at, status")
         .eq("is_public", true)
         .order("created_at", { ascending: false })
         .limit(12)
+
+      if (error && error.code === '42703') {
+        const fallback = await supabase
+          .from("trips")
+          .select("id, destination, duration_days, budget_range, plan_data, created_at, status")
+          .eq("is_public", true)
+          .order("created_at", { ascending: false })
+          .limit(12)
+        data = (fallback.data || []).map((t: any) => ({
+          ...t,
+          review_rating: null,
+          review_text: null
+        })) as any
+        error = fallback.error as any
+      }
 
       if (error) console.error("Explore page error fetching trips:", error)
 

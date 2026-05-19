@@ -21,6 +21,7 @@ llm = ChatGroq(
     api_key=settings.GROQ_API_KEY,
     model="llama-3.3-70b-versatile",
     temperature=0,
+    max_tokens=1500,
 )
 
 # User agents (same pool as base.py pattern)
@@ -62,10 +63,19 @@ these keys (use null if not found):
   "events": [
     {{"name": "str", "event_type": "str", "description": "str",
       "start_date": "str", "impact_on_travel": "str"}}
+  ],
+  "transport": [
+    {{"operator": "str", "price_inr": 0, "duration_minutes": 0,
+      "departure_times": ["HH:MM"], "frequency": "str", "booking_url": "str",
+      "travel_class": "str - Economy/Sleeper/AC etc or null"}}
   ]
 }}
 Only include items where you have reasonable confidence in the data.
 Do not hallucinate. If a field is missing, use null.
+For transport pages: extract every visible fare/price option.
+Each unique operator+price combination is a separate item.
+price_inr must be a plain integer (no currency symbols).
+If page shows price ranges, use the lower bound.
 Return ONLY the JSON object, no preamble, no explanation.
 
 Page content:

@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import AuthModal from "@/components/AuthModal"
+import { TripProgressBar } from "@/components/TripProgressBar"
 
 // ─── Category Config ─────────────────────────────────────
 const CATEGORIES = [
@@ -54,7 +55,7 @@ function PlaceCard({
     >
       <div
         onClick={onToggle}
-        className={`relative group cursor-pointer overflow-hidden border transition-all duration-300 ${
+        className={`relative group cursor-pointer overflow-hidden rounded-3xl transition-all duration-300 glass-card ${
           isSelected
             ? "border-[var(--gold)] shadow-lg"
             : "border-border/30 hover:border-foreground/20 hover:shadow-md"
@@ -85,7 +86,7 @@ function PlaceCard({
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0 }}
-                className="absolute top-3 right-3 h-7 w-7 bg-[var(--gold)] flex items-center justify-center"
+                className="absolute top-3 right-3 h-7 w-7 bg-[var(--gold)] rounded-full flex items-center justify-center shadow-lg"
               >
                 <Check className="h-4 w-4 text-background" strokeWidth={3} />
               </motion.div>
@@ -95,7 +96,7 @@ function PlaceCard({
           {/* Detail button */}
           <button
             onClick={(e) => { e.stopPropagation(); onDetail(); }}
-            className="absolute top-3 left-3 h-7 w-7 bg-black/40 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-3 left-3 h-7 w-7 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
           >
             <Eye className="h-3.5 w-3.5 text-white" />
           </button>
@@ -193,17 +194,17 @@ function PlaceDetailModal({
 
           <div className="flex flex-wrap gap-3">
             {place.rating > 0 && (
-              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] px-3 py-1.5 border border-border/50">
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] px-3 py-1.5 border border-border/50 rounded-full bg-card/30">
                 <Star className="h-3 w-3 fill-[var(--gold)] text-[var(--gold)]" /> {place.rating}
               </div>
             )}
             {place.timing && (
-              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] px-3 py-1.5 border border-border/50">
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.1em] px-3 py-1.5 border border-border/50 rounded-full bg-card/30">
                 <Clock className="h-3 w-3" /> {place.timing}
               </div>
             )}
             {place.priceLevel && place.priceLevel > 0 && (
-              <div className="text-[10px] px-3 py-1.5 border border-border/50">
+              <div className="text-[10px] px-3 py-1.5 border border-border/50 rounded-full bg-card/30">
                 {"₹".repeat(place.priceLevel)} Price
               </div>
             )}
@@ -220,7 +221,7 @@ function PlaceDetailModal({
           <div className="flex gap-3 pt-2">
             <button
               onClick={onToggle}
-              className={`flex-1 flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.15em] font-medium py-3 transition-all ${
+              className={`flex-1 flex items-center justify-center gap-2 text-[10px] uppercase tracking-[0.15em] font-semibold py-3.5 rounded-full transition-all cursor-pointer ${
                 isSelected
                   ? "bg-[var(--gold)] text-background"
                   : "bg-foreground text-background hover:bg-foreground/90"
@@ -233,7 +234,7 @@ function PlaceDetailModal({
                 const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' ' + place.address)}`
                 window.open(url, '_blank')
               }}
-              className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] font-medium px-4 py-3 border border-border/50 hover:border-foreground/30 transition-all"
+              className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] font-bold px-5 py-3.5 border border-border/50 hover:border-foreground/30 rounded-full transition-all cursor-pointer"
             >
               <MapPin className="h-3 w-3" /> Maps
             </button>
@@ -361,6 +362,7 @@ export default function PickPlacesPage() {
 
   return (
     <div className="min-h-screen bg-background pb-28">
+      <TripProgressBar currentStep={3} />
 
       {/* Editorial Header */}
       <div className="border-b border-border/50 py-16 px-6">
@@ -376,9 +378,9 @@ export default function PickPlacesPage() {
           </p>
 
           <div className="flex flex-wrap justify-center gap-3 mt-6 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-            <span className="px-4 py-2 border border-border/50">{trip?.destination}</span>
-            <span className="px-4 py-2 border border-border/50">{trip?.duration_days} Days</span>
-            <span className="px-4 py-2 border border-border/50">{selectedPlaces.length} Selected</span>
+            <span className="px-4 py-2 border border-border/50 rounded-full bg-card/30 backdrop-blur-sm">{trip?.destination}</span>
+            <span className="px-4 py-2 border border-border/50 rounded-full bg-card/30 backdrop-blur-sm">{trip?.duration_days} Days</span>
+            <span className="px-4 py-2 border border-border/50 rounded-full bg-card/30 backdrop-blur-sm">{selectedPlaces.length} Selected</span>
           </div>
         </div>
       </div>
@@ -395,7 +397,7 @@ export default function PickPlacesPage() {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`flex items-center gap-2 px-5 py-2.5 text-[10px] uppercase tracking-[0.15em] font-medium whitespace-nowrap border transition-all ${
+                className={`flex items-center gap-2 px-5 py-2.5 text-[10px] uppercase tracking-[0.15em] font-bold whitespace-nowrap border rounded-full transition-all duration-300 ${
                   isActive
                     ? "bg-foreground text-background border-foreground"
                     : "border-border/50 text-muted-foreground hover:text-foreground hover:border-foreground/30"
@@ -403,7 +405,7 @@ export default function PickPlacesPage() {
               >
                 {cat.label}
                 {count > 0 && (
-                  <span className={`ml-1 px-1.5 py-0.5 text-[9px] font-bold ${
+                  <span className={`ml-1 px-2.5 py-0.5 text-[9px] font-bold rounded-full ${
                     isActive ? "bg-background/20" : "bg-[var(--gold)]/10 text-[var(--gold)]"
                   }`}>
                     {count}
@@ -422,7 +424,7 @@ export default function PickPlacesPage() {
             placeholder={`Search places in ${trip?.destination}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-12 border border-border/50 bg-transparent pl-11 pr-4 text-sm focus:outline-none focus:border-[var(--gold)] transition-all"
+            className="w-full h-12 border border-border/50 bg-transparent rounded-full pl-11 pr-4 text-sm focus:outline-none focus:border-[var(--gold)] transition-all bg-card/10 backdrop-blur-sm"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -493,14 +495,14 @@ export default function PickPlacesPage() {
           <div className="flex gap-3">
             <button
               onClick={() => router.push(`/generate/${trip?.id}`)}
-              className="hidden sm:flex items-center text-[10px] uppercase tracking-[0.15em] font-medium px-5 py-3 border border-border/50 text-muted-foreground hover:text-foreground transition-all"
+              className="hidden sm:flex items-center text-[10px] uppercase tracking-[0.15em] font-bold px-6 py-3.5 border border-border/50 text-muted-foreground hover:text-foreground rounded-full transition-all cursor-pointer"
             >
               Skip & Let AI Decide
             </button>
             <button
               onClick={handleContinue}
               disabled={selectedPlaces.length < 1 || continuing}
-              className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] font-medium px-6 py-3 bg-foreground text-background hover:bg-foreground/90 transition-all disabled:opacity-30"
+              className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] font-bold px-6 py-3.5 bg-foreground text-background rounded-full hover:bg-foreground/90 transition-all disabled:opacity-30 shadow-md cursor-pointer"
             >
               {continuing ? (
                 <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Building...</>

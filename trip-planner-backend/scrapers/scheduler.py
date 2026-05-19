@@ -138,12 +138,47 @@ async def startup_priority_run():
     except Exception as e:
         logger.error(f"Priority check failed: {e}")
 
+async def _run_transport_scraper_job(destination: dict):
+    from scrapers.transport_scraper import TransportScraper
+    dest_name = destination.get("name", "unknown")
+    logger.info(f"Starting TransportScraper job for {dest_name}")
+    try:
+        scraper = TransportScraper()
+        records = await scraper.scrape(destination)
+        dest_slug = destination.get("slug", dest_name.lower().replace(" ", "-"))
+        await scraper.save_to_db(records, dest_slug)
+        logger.info(f"Completed TransportScraper job for {dest_name}")
+    except Exception as e:
+        logger.error(f"TransportScraper job failed for {dest_name}: {e}")
+
+def register_transport_scrapers(scheduler: AsyncIOScheduler):
+    interval_hours = 12
+    base_delay_seconds = 60
+
+    for i, dest in enumerate(DESTINATIONS):
+        # start after the main destination scrapers to lower priority interference
+        start_delay_seconds = (i * base_delay_seconds) + 3600 
+        job_id = f"transportscrape_{dest['slug']}"
+
+        job_func = lambda dst=dest: asyncio.create_task(_run_transport_scraper_job(dst))
+
+        scheduler.add_job(
+            job_func,
+            trigger=IntervalTrigger(hours=interval_hours),
+            id=job_id,
+            name=f"TransportScrape - {dest['name']}",
+            next_run_time=datetime.now() + timedelta(seconds=start_delay_seconds),
+            replace_existing=True,
+        )
+        logger.info(f"Registered job: {job_id} (interval: {interval_hours}h, start_delay: {start_delay_seconds}s)")
+
 
 def start_scheduler() -> AsyncIOScheduler:
     """Create and configure the scheduler."""
     scheduler = AsyncIOScheduler(timezone="UTC")
 
     register_all_scrapers(scheduler)
+    register_transport_scrapers(scheduler)
 
     scheduler.add_job(
         startup_priority_run,

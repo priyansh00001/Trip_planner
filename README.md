@@ -1,4 +1,4 @@
-# 🌍 AI Trip Planner (Yatra)
+# 🌍 AI Trip Planner (Karyakram)
 
 A next-generation, deeply integrated AI-powered travel planning application. It leverages a **Next.js 16** frontend and a **FastAPI + LangGraph** Multi-Agent backend to generate personalized, day-by-day itineraries, curate hotel recommendations, and discover local attractions in real-time.
 

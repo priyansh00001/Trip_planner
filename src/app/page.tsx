@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Check } from "lucide-react";
+import { Loader2, Check, Map, Sun, Shield, Wallet, Search, Sparkles } from "lucide-react";
 
 export default function Home() {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
   const [email, setEmail] = useState("");
   const [newsletterState, setNewsletterState] = useState<"idle" | "loading" | "success">("idle");
   const [newsletterData, setNewsletterData] = useState<any>(null);
@@ -31,25 +34,19 @@ export default function Home() {
       setNewsletterState("idle");
     }
   };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/trip-input?destination=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-card/50 backdrop-blur-sm">
-        <div className="container flex h-16 max-w-7xl mx-auto items-center justify-between px-6 md:px-8">
-          <Link href="/" className="font-serif text-lg tracking-wide text-foreground">
-            Trip Planner
-          </Link>
-          <Link
-            href="/login"
-            className="text-[10px] uppercase tracking-[0.2em] font-medium px-6 py-2.5 bg-foreground text-background hover:bg-foreground/90 transition-all"
-          >
-            Get Started
-          </Link>
-        </div>
-      </header>
-
+      
       {/* Hero Section */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col -mt-[96px]">
         <section className="relative flex-1 flex items-center justify-center px-6 overflow-hidden">
           {/* Background travel photo */}
           <div className="absolute inset-0 -z-10">
@@ -60,7 +57,7 @@ export default function Home() {
           {/* Ambient glow */}
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[var(--gold)]/3 rounded-full blur-[120px] pointer-events-none" />
 
-          <div className="container max-w-4xl mx-auto text-center py-28 md:py-40">
+          <div className="container max-w-4xl mx-auto text-center pt-36 pb-20 md:pt-44 md:pb-28">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -81,156 +78,231 @@ export default function Home() {
                 and plot it all on an interactive map.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
-                <Link
-                  href="/trip-input"
-                  className="inline-flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-medium px-10 py-4 bg-foreground text-background hover:bg-foreground/90 transition-all"
-                >
-                  Start Planning
-                </Link>
-                <Link
-                  href="/dashboard"
-                  className="inline-flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-medium px-10 py-4 border border-border/60 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all"
-                >
-                  View Demo Trip
-                </Link>
-              </div>
-
-              {/* Feature highlights */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-20 max-w-2xl mx-auto">
-                {[
-                  { label: "Interactive Maps" },
-                  { label: "Live Weather" },
-                  { label: "Emergency SOS" },
-                  { label: "Budget Splitter" },
-                ].map((f, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 + i * 0.1 }}
-                    className="flex flex-col items-center gap-2 py-4 border border-border/30"
+              <form onSubmit={handleSearchSubmit} className="max-w-xl mx-auto mt-10 relative">
+                <div className="relative flex items-center bg-card/65 border border-[var(--gold)]/20 shadow-lg rounded-full backdrop-blur-md p-1.5 focus-within:border-[var(--gold)]/50 focus-within:ring-2 focus-within:ring-[var(--gold)]/5 transition-all">
+                  <div className="pl-4 text-muted-foreground/60 shrink-0">
+                    <Search className="h-5 w-5 text-[var(--gold)]" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Where do you want to escape? (e.g., Jaipur, Goa...)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-transparent border-0 outline-none px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground/45 font-medium font-sans"
+                  />
+                  <button
+                    type="submit"
+                    className="shrink-0 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-3.5 bg-foreground text-background rounded-full hover:bg-foreground/90 transition-all cursor-pointer"
                   >
-                    <span className="text-[10px] uppercase tracking-[0.15em] font-medium text-muted-foreground">{f.label}</span>
-                  </motion.div>
+                    Explore <Sparkles className="h-3 w-3" />
+                  </button>
+                </div>
+              </form>
+
+              <div className="mt-4 flex flex-wrap justify-center gap-2.5 text-xs text-muted-foreground font-sans">
+                <span className="opacity-60">Popular:</span>
+                {["Jaipur", "Goa", "Kerala"].map((pop) => (
+                  <button
+                    key={pop}
+                    onClick={() => {
+                      setSearchQuery(pop)
+                      router.push(`/trip-input?destination=${encodeURIComponent(pop)}`)
+                    }}
+                    className="hover:text-[var(--gold)] transition-colors underline decoration-border/40 underline-offset-4 font-medium"
+                  >
+                    {pop}
+                  </button>
                 ))}
               </div>
+
+              {/* Action Buttons */}
+              <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Link
+                  href="/trip-input"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-xs uppercase tracking-[0.2em] font-bold px-8 py-4 bg-[var(--gold)] text-background rounded-full hover:bg-[var(--gold)]/90 shadow-lg shadow-[var(--gold)]/10 hover:shadow-[var(--gold)]/20 transition-all cursor-pointer"
+                >
+                  Start Planning Your Free Trip <Sparkles className="h-3.5 w-3.5" />
+                </Link>
+                <a
+                  href="#curated-escapes"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-xs uppercase tracking-[0.2em] font-bold px-8 py-4 border border-[var(--gold)]/25 text-[var(--gold)] hover:bg-[var(--gold)] hover:text-background rounded-full transition-all cursor-pointer"
+                >
+                  Explore Destinations
+                </a>
+              </div>
+
             </motion.div>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border/50">
-        <div className="container max-w-7xl mx-auto px-6 md:px-8 py-16">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12">
-            {/* Brand */}
-            <div className="space-y-4">
-              <span className="font-serif text-lg">Trip Planner</span>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Plan smarter, travel better. AI-powered itineraries crafted for every kind of explorer.
-              </p>
-              <div className="flex gap-3">
-                {[
-                  { label: "Twitter", path: "M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" },
-                  { label: "GitHub", path: "M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65S8.93 17.38 9 18v4" },
-                  { label: "Instagram", path: "M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37zM17.5 6.5h.01M7.5 2h9A5.5 5.5 0 0 1 22 7.5v9a5.5 5.5 0 0 1-5.5 5.5h-9A5.5 5.5 0 0 1 2 16.5v-9A5.5 5.5 0 0 1 7.5 2z" },
-                ].map((social) => (
-                  <a key={social.label} href="#" className="w-8 h-8 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all" aria-label={social.label}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={social.path}/></svg>
-                  </a>
-                ))}
-              </div>
-            </div>
-
-            {/* Product */}
-            <div className="space-y-4">
-              <h4 className="text-[10px] uppercase tracking-[0.2em] font-medium text-[var(--gold)]">Product</h4>
-              <ul className="space-y-2.5">
-                {[
-                  { label: "Features", href: "#" },
-                  { label: "Explore Destinations", href: "/dashboard/explore" },
-                  { label: "Community Wall", href: "/dashboard/explore#community" },
-                  { label: "Trip Memories", href: "/memories" },
-                ].map(link => (
-                  <li key={link.label}><Link href={link.href} className="text-xs text-muted-foreground hover:text-foreground transition-colors">{link.label}</Link></li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Company */}
-            <div className="space-y-4">
-              <h4 className="text-[10px] uppercase tracking-[0.2em] font-medium text-[var(--gold)]">Company</h4>
-              <ul className="space-y-2.5">
-                {[
-                  { label: "About Us", href: "#" },
-                  { label: "Privacy Policy", href: "/privacy" },
-                  { label: "Terms of Service", href: "/terms" },
-                  { label: "Contact", href: "mailto:support@aitripplanner.com" },
-                ].map(link => (
-                  <li key={link.label}><Link href={link.href} className="text-xs text-muted-foreground hover:text-foreground transition-colors">{link.label}</Link></li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Newsletter */}
-            <div className="space-y-4">
-              <h4 className="text-[10px] uppercase tracking-[0.2em] font-medium text-[var(--gold)]">Stay Updated</h4>
-              <AnimatePresence mode="wait">
-                {newsletterState === "success" && newsletterData ? (
-                  <motion.div key="success" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-                    <div className="flex items-center gap-2 text-[var(--gold)]">
-                      <Check className="h-3.5 w-3.5" />
-                      <span className="text-xs font-medium">{newsletterData.message}</span>
-                    </div>
-                    <div className="space-y-2">
-                      {newsletterData.recommendations?.map((r: any, i: number) => (
-                        <div key={i} className="border border-border/30 p-2.5">
-                          <p className="text-[10px] font-medium text-foreground">{r.name}</p>
-                          <p className="text-[9px] text-muted-foreground mt-0.5">{r.why}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </motion.div>
-                ) : (
-                  <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <p className="text-xs text-muted-foreground mb-3">Get monthly trip recommendations and new features.</p>
-                    <form className="flex gap-2" onSubmit={handleNewsletter}>
-                      <input 
-                        type="email" 
-                        placeholder="your@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="flex-1 border border-border/50 bg-transparent px-3 py-2 text-xs focus:outline-none focus:border-[var(--gold)] transition-colors" 
-                        required
-                      />
-                      <button 
-                        type="submit"
-                        disabled={newsletterState === "loading"}
-                        className="text-[9px] uppercase tracking-[0.15em] font-medium px-4 py-2 bg-foreground text-background hover:bg-foreground/90 transition-all disabled:opacity-50"
-                      >
-                        {newsletterState === "loading" ? <Loader2 className="h-3 w-3 animate-spin" /> : "Join"}
-                      </button>
-                    </form>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+      
+      {/* Sections A, B, C */}
+      <section className="py-24 px-6 bg-background">
+        <div className="container max-w-7xl mx-auto">
+          {/* Section A - How it Works */}
+          <div className="mb-32">
+            <h2 className="font-serif text-3xl md:text-4xl text-center mb-16">How it works</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+              {[
+                { step: "01", title: "Tell us your destination, budget, and dates", desc: "Share your basics and let AI handle the heavy lifting." },
+                { step: "02", title: "Pick your basecamp hotel from real options", desc: "Select a curated stay that matches your travel style." },
+                { step: "03", title: "Select places to visit — get a full day-by-day plan", desc: "Choose attractions and we'll map out a perfect itinerary." }
+              ].map((item, i) => (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.2 }}
+                  className="flex flex-col items-center text-center p-8 rounded-3xl border border-border/30 bg-card/30 hover:bg-card/50 hover:border-[var(--gold)]/20 backdrop-blur-sm transition-all duration-500"
+                >
+                  <div className="w-12 h-12 rounded-full bg-[var(--gold)]/10 text-[var(--gold)] flex items-center justify-center font-bold text-lg mb-6 border border-[var(--gold)]/20">
+                    {item.step}
+                  </div>
+                  <h3 className="font-serif text-xl mb-3">{item.title}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{item.desc}</p>
+                </motion.div>
+              ))}
             </div>
           </div>
 
-          {/* Bottom bar */}
-          <div className="mt-16 pt-8 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-[10px] text-muted-foreground/50">
-              © {new Date().getFullYear()} AI Trip Planner. All rights reserved.
-            </p>
-            <div className="flex items-center gap-6">
-              <Link href="/privacy" className="text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors">Privacy</Link>
-              <Link href="/terms" className="text-[10px] text-muted-foreground/50 hover:text-foreground transition-colors">Terms</Link>
-              <span className="text-[10px] text-muted-foreground/50">Made with ❤️ in India</span>
+          {/* Section: Curated Destinations */}
+          <div id="curated-escapes" className="scroll-mt-24 mb-32">
+            <div className="text-center max-w-2xl mx-auto mb-16">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--gold)] font-bold mb-3">Pre-Designed Routes</p>
+              <h2 className="font-serif text-3xl md:text-4xl">Curated Luxury Escapes</h2>
+              <p className="text-muted-foreground text-sm mt-3 font-sans">
+                Instantly unlock premium expert-crafted itineraries for the most breathtaking escapes. Fully customizable in one click.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 font-sans">
+              {[
+                {
+                  title: "Imperial Jaipur",
+                  desc: "Wander through palaces, magnificent sandstone forts, and royal observatories steeped in history.",
+                  img: "https://images.unsplash.com/photo-1477587458883-47145ed94245?q=80&w=600&auto=format&fit=crop",
+                  tag: "5 Days · Heritage",
+                  query: "destination=Jaipur&days=5&budget=35000&preference=Hotel"
+                },
+                {
+                  title: "Coastal Goa",
+                  desc: "Savor gourmet sea cuisines, watch fiery sunfalls, and explore hidden Portuguese colonial quarters.",
+                  img: "https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?q=80&w=600&auto=format&fit=crop",
+                  tag: "4 Days · Beachfront",
+                  query: "destination=Goa&days=4&budget=28000&preference=Hotel"
+                },
+                {
+                  title: "Serene Kerala",
+                  desc: "Glide down quiet emerald channels on houseboats and wander misty spice hill plantations.",
+                  img: "https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?q=80&w=600&auto=format&fit=crop",
+                  tag: "6 Days · Backwaters",
+                  query: "destination=Kerala&days=6&budget=45000&preference=Homestay 🏡"
+                },
+                {
+                  title: "Mystique Ladakh",
+                  desc: "Cross breathtaking high mountain paths, admire salt-blue lakes, and visit ancient monasteries.",
+                  img: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=600&auto=format&fit=crop",
+                  tag: "7 Days · Adventure",
+                  query: "destination=Leh Ladakh&days=7&budget=60000&preference=Hotel"
+                }
+              ].map((item, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.15 }}
+                  className="group relative overflow-hidden rounded-2xl border border-border/30 bg-card/30 hover:bg-card/50 hover:border-[var(--gold)]/20 backdrop-blur-sm transition-all duration-500 flex flex-col h-full hover:-translate-y-1"
+                >
+                  <div className="h-44 w-full relative overflow-hidden">
+                    <div 
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                      style={{ backgroundImage: `url('${item.img}')` }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
+                    <span className="absolute top-4 right-4 text-[9px] uppercase tracking-[0.15em] font-bold px-3 py-1.5 backdrop-blur-md bg-[var(--gold)]/20 text-[var(--gold)] border border-[var(--gold)]/30 rounded-full">
+                      {item.tag}
+                    </span>
+                  </div>
+                  <div className="p-6 flex-1 flex flex-col justify-between gap-4 font-sans">
+                    <div>
+                      <h3 className="font-serif text-xl tracking-tight text-foreground group-hover:text-[var(--gold)] transition-colors duration-300">
+                        {item.title}
+                      </h3>
+                      <p className="text-muted-foreground text-xs leading-relaxed mt-2">
+                        {item.desc}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/trip-input?${item.query}`}
+                      className="inline-flex items-center justify-center text-[10px] uppercase tracking-[0.2em] font-bold py-3.5 border border-[var(--gold)]/25 text-[var(--gold)] hover:bg-[var(--gold)] hover:text-background rounded-full transition-all text-center w-full cursor-pointer"
+                    >
+                      Bespoke Customize
+                    </Link>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Section B - Features Grid */}
+          <div className="mb-32">
+            <h2 className="font-serif text-3xl md:text-4xl text-center mb-16">Everything you need</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[
+                { icon: Map, title: "Interactive Maps", desc: "Visual routes with estimated travel times and distances." },
+                { icon: Sun, title: "Live Weather", desc: "Real-time forecasts so you can pack and plan perfectly." },
+                { icon: Shield, title: "Emergency SOS", desc: "One-tap access to local emergency contacts and safe spots." },
+                { icon: Wallet, title: "Budget Splitter", desc: "Keep track of expenses effortlessly while on the go." }
+              ].map((feature, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="glass-card rounded-2xl p-8 hover:-translate-y-1 hover:border-[var(--gold)]/40 transition-all duration-500"
+                >
+                  <feature.icon className="h-8 w-8 text-[var(--gold)] mb-6" />
+                  <h3 className="font-serif text-xl mb-3">{feature.title}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{feature.desc}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Section C - Social Proof */}
+          <div>
+            <h2 className="font-serif text-3xl md:text-4xl text-center mb-16">Travelers love Karyakram</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                { text: "Finally a travel app that gets Indian destinations right", author: "Priya M." },
+                { text: "Planned our Rajasthan trip in 10 minutes", author: "Arjun K." },
+                { text: "The budget breakdown saved us from overspending", author: "Sneha R." }
+              ].map((testimonial, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.2 }}
+                  className="glass-card rounded-2xl p-8 hover:-translate-y-1 hover:border-[var(--gold)]/40 transition-all duration-500 relative"
+                >
+                  <span className="absolute top-6 left-6 text-4xl text-[var(--gold)]/20 font-serif">"</span>
+                  <p className="text-foreground/80 italic font-serif text-lg leading-relaxed relative z-10 mb-6 mt-4">
+                    {testimonial.text}
+                  </p>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--gold)] font-medium">
+                    — {testimonial.author}
+                  </p>
+                </motion.div>
+              ))}
             </div>
           </div>
         </div>
-      </footer>
+      </section>
     </div>
   );
 }

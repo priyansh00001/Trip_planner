@@ -14,6 +14,7 @@ async def budget_node(state: dict) -> dict:
     req = state["request"]
     itinerary = state.get("itinerary", {})
     retrieved = state.get("retrieved_context")
+    transport_cost_inr = state.get("transport_cost_inr", 0) or 0
 
     # Calculate days
     try:
@@ -27,6 +28,8 @@ async def budget_node(state: dict) -> dict:
         n_days = 3
 
     budget_inr = req.budget_usd * 83
+    original_budget = int(budget_inr)
+    remaining_budget_inr = original_budget - (transport_cost_inr * 2)
 
     # Get hotel cost
     hotels = itinerary.get("days", [])
@@ -63,25 +66,35 @@ async def budget_node(state: dict) -> dict:
     daily_food = {"budget": 400, "mid": 800, "premium": 1500}.get(budget_tier, 800)
     food_cost = daily_food * n_days * req.travelers
 
-    # Transport estimate (based on distance)
-    transport_cost = 1500 * n_days  # flat estimate
+    # Local Transport estimate (flat estimate)
+    local_transport_cost = 1500 * n_days
 
-    total_estimated = hotel_cost + entry_fees + food_cost + transport_cost
+    total_estimated = (transport_cost_inr * 2) + hotel_cost + entry_fees + food_cost + local_transport_cost
 
     breakdown = {
         "hotel": hotel_cost,
         "entry_fees": entry_fees,
         "food": food_cost,
-        "transport": transport_cost,
+        "transport": local_transport_cost,
         "total_estimated": total_estimated,
-        "user_budget": int(budget_inr),
+        "user_budget": original_budget,
+        "transport_to_destination_inr": transport_cost_inr,
+        "transport_return_inr": transport_cost_inr,
+        "accommodation_inr": hotel_cost,
+        "activities_inr": entry_fees,
+        "food_inr": food_cost,
+        "local_transport_inr": local_transport_cost,
+        "total_inr": total_estimated,
+        "budget_inr": original_budget,
+        "under_over_budget_inr": original_budget - total_estimated,
+        "remaining_for_trip_inr": remaining_budget_inr
     }
 
     warnings = list(state.get("warnings", []))
 
     # Check if over budget
-    if total_estimated > budget_inr * 1.1:
-        over_by = total_estimated - budget_inr
+    if total_estimated > original_budget * 1.1:
+        over_by = total_estimated - original_budget
         warnings.append(f"Estimated cost ₹{total_estimated:,} exceeds budget by ₹{over_by:,}")
 
     return {

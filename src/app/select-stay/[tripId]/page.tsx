@@ -5,9 +5,16 @@ import { useParams, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
   MapPin, Star, Loader2, AlertCircle,
-  Check, ArrowRight
+  Check, ArrowRight, Hotel, Backpack, Home
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { TripProgressBar } from "@/components/TripProgressBar"
+
+const tabItems = [
+  { id: "Hotel", label: "Hotels", icon: Hotel },
+  { id: "Hostel", label: "Hostels", icon: Backpack },
+  { id: "Homestay", label: "Homestays", icon: Home },
+]
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -29,6 +36,7 @@ export default function SelectStayPage() {
 
   const [trip, setTrip] = useState<any>(null)
   const [stays, setStays] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<string>("Hotel")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -106,7 +114,7 @@ export default function SelectStayPage() {
           <p className="text-sm text-muted-foreground mb-6">{error}</p>
           <button
             onClick={() => router.push('/dashboard')}
-            className="text-[10px] uppercase tracking-[0.2em] font-medium px-6 py-3 bg-foreground text-background"
+            className="text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-3 bg-foreground text-background rounded-full hover:bg-foreground/90 transition-all cursor-pointer"
           >
             Back to Dashboard
           </button>
@@ -115,8 +123,23 @@ export default function SelectStayPage() {
     )
   }
 
+  const activeStays = stays.filter((s: any) => {
+    const t = (s.type || "").toLowerCase()
+    if (activeTab === "Hotel") {
+      return t.includes("hotel") || t.includes("resort")
+    }
+    if (activeTab === "Hostel") {
+      return t.includes("hostel") || t.includes("backpack")
+    }
+    if (activeTab === "Homestay") {
+      return t.includes("homestay") || t.includes("home") || t.includes("guest") || t.includes("stay")
+    }
+    return true
+  })
+
   return (
     <div className="min-h-screen bg-background">
+      <TripProgressBar currentStep={2} />
       {/* Editorial Header */}
       <div className="border-b border-border/50 py-16 px-6">
         <div className="max-w-4xl mx-auto text-center">
@@ -131,21 +154,61 @@ export default function SelectStayPage() {
           </p>
 
           <div className="flex flex-wrap justify-center gap-3 mt-6 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-            <span className="px-4 py-2 border border-border/50">{trip?.destination}</span>
-            <span className="px-4 py-2 border border-border/50">{trip?.duration_days} Days</span>
-            <span className="px-4 py-2 border border-border/50">₹{Number(trip?.budget_range).toLocaleString("en-IN")}</span>
+            <span className="px-4 py-2 border border-border/50 rounded-full bg-card/30 backdrop-blur-sm">{trip?.destination}</span>
+            <span className="px-4 py-2 border border-border/50 rounded-full bg-card/30 backdrop-blur-sm">{trip?.duration_days} Days</span>
+            <span className="px-4 py-2 border border-border/50 rounded-full bg-card/30 backdrop-blur-sm">₹{Number(trip?.budget_range).toLocaleString("en-IN")}</span>
           </div>
+        </div>
+      </div>
+
+      {/* Navigation tabs */}
+      <div className="max-w-5xl mx-auto w-full px-6 pt-12 flex justify-center">
+        <div className="inline-flex border-b border-border/40 p-1 gap-2 md:gap-4">
+          {tabItems.map((tab) => {
+            const Icon = tab.icon
+            const isTabActive = activeTab === tab.id
+            const count = stays.filter((s: any) => {
+              const t = (s.type || "").toLowerCase()
+              if (tab.id === "Hotel") return t.includes("hotel") || t.includes("resort")
+              if (tab.id === "Hostel") return t.includes("hostel") || t.includes("backpack")
+              if (tab.id === "Homestay") return t.includes("homestay") || t.includes("home") || t.includes("guest") || t.includes("stay")
+              return false
+            }).length
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  setSelectedId(null)
+                }}
+                className={`flex items-center gap-2 py-3 px-6 border-b-2 text-xs uppercase tracking-[0.15em] font-medium transition-all ${
+                  isTabActive
+                    ? "border-[var(--gold)] text-[var(--gold)] font-bold"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{tab.label}</span>
+                {count > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 text-[9px] font-semibold bg-border/40 text-muted-foreground rounded-full">
+                    {count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
       </div>
 
       {/* Stay Cards */}
       <div className="max-w-5xl mx-auto px-6 py-14">
         <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground text-center mb-10">
-          {stays.length} options found · Select one to continue
+          {activeStays.length} options found · Select one to continue
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {stays.map((stay: any, idx: number) => {
+          {activeStays.map((stay: any, idx: number) => {
             const isSelected = selectedId === stay.id
 
             return (
@@ -157,20 +220,20 @@ export default function SelectStayPage() {
                 onClick={() => setSelectedId(stay.id || String(idx))}
                 className="cursor-pointer"
               >
-                <div className={`relative border transition-all duration-300 p-6 h-full flex flex-col ${
+                <div className={`relative rounded-3xl p-6 h-full flex flex-col glass-card hover:-translate-y-1 transition-all duration-300 ${
                   isSelected
-                    ? "border-[var(--gold)] bg-[var(--gold)]/5"
-                    : "border-border/40 hover:border-foreground/20"
+                    ? "border-[var(--gold)]/60 bg-[var(--gold)]/5 shadow-md"
+                    : "hover:border-[var(--gold)]/30"
                 }`}>
                   {/* Selected checkmark */}
                   {isSelected && (
-                    <div className="absolute top-4 right-4 h-6 w-6 bg-[var(--gold)] flex items-center justify-center">
+                    <div className="absolute top-4 right-4 h-6 w-6 bg-[var(--gold)] rounded-full flex items-center justify-center shadow-md">
                       <Check className="h-4 w-4 text-background" strokeWidth={3} />
                     </div>
                   )}
 
                   {/* Type badge */}
-                  <span className="text-[9px] uppercase tracking-[0.15em] font-medium text-muted-foreground border border-border/50 px-2 py-1 self-start mb-4">
+                  <span className="text-[9px] uppercase tracking-[0.15em] font-bold text-muted-foreground border border-border/50 px-3 py-1.5 rounded-full self-start mb-4 bg-card/30">
                     {stay.type}
                   </span>
 
@@ -208,7 +271,7 @@ export default function SelectStayPage() {
           <button
             disabled={!selectedId || confirming}
             onClick={handleConfirmStay}
-            className="flex items-center justify-center gap-3 text-[11px] uppercase tracking-[0.2em] font-semibold px-12 py-5 bg-foreground text-background hover:bg-foreground/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-3 text-[11px] uppercase tracking-[0.2em] font-semibold px-12 py-5 bg-foreground text-background rounded-full hover:bg-foreground/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg cursor-pointer"
           >
             {confirming ? (
               <><Loader2 className="h-4 w-4 animate-spin" /> Building your itinerary...</>

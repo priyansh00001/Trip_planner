@@ -16,7 +16,7 @@ import httpx, json, logging
 
 logger = logging.getLogger(__name__)
 
-llm = ChatGroq(api_key=settings.GROQ_API_KEY, model="llama-3.3-70b-versatile")
+llm = ChatGroq(api_key=settings.GROQ_API_KEY, model="llama-3.3-70b-versatile", max_tokens=1500)
 
 
 class WebSearchAgent(BaseAgent):

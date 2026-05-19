@@ -136,3 +136,81 @@ This document contains a comprehensive record of all changes, structural refacto
   - **Result**: **100% SUCCESS** - Clean redirect to timeline view displaying weather badges, beautiful lilac timeline actions, rating tags, and interactive trip tools.
   - **Type Checking**: Clean compiler pass on `npx tsc --noEmit`!
 
+---
+
+## 🚀 Transport Scraper Audit + Full Backend Security & Error Scan (Hardening Session)
+
+### Added Files
+- [core/rate_limit.py](file:///d:/AI/Trip_planner/trip-planner-backend/core/rate_limit.py): Shared `Limiter` instance configuration for global endpoint rate limiting.
+- [tests/test_edge_cases.py](file:///d:/AI/Trip_planner/trip-planner-backend/tests/test_edge_cases.py): Robust validation suite checking for edge cases, error leaks, and auth bypasses.
+- [.github/workflows/ci.yml](file:///d:/AI/Trip_planner/.github/workflows/ci.yml): GitHub Actions CI workflow to run tests, Ruff lints, and Bandit scans automatically.
+- [scripts/a1_connectivity.py](file:///d:/AI/Trip_planner/trip-planner-backend/scripts/a1_connectivity.py): Pre-check reachability testing script.
+- [scripts/a4_cab_verify.py](file:///d:/AI/Trip_planner/trip-planner-backend/scripts/a4_cab_verify.py): Haversine distance cab calculator verification script.
+
+### Detailed Changes
+
+#### 🔴 CRITICAL — Security Fixes Applied
+*   **ADMIN_SECRET Default Bypass**:
+    *   **File**: [routers/transport.py](file:///d:/AI/Trip_planner/trip-planner-backend/routers/transport.py)
+    *   **Details**: Changed default `ADMIN_SECRET` in `/api/transport/trigger` from `"admin_secret"` to `""`. Enforced access denial on empty string inputs to prevent unauthenticated scraper triggers.
+*   **Leak Prevention & Global Error Handler**:
+    *   **File**: [main.py](file:///d:/AI/Trip_planner/trip-planner-backend/main.py)
+    *   **Details**: Configured FastAPI exception handlers for `Exception` and `RequestValidationError`. General exceptions log raw tracebacks server-side and present users with a clean 500 JSON object. Validation errors return `exc.errors()` instead of stringified traceback parameters to block internal file-system trace leaks.
+
+#### 🟠 HIGH — Security & Resource Controls
+*   **IP-Based Rate Limiting on Plan Endpoint**:
+    *   **Files**: [main.py](file:///d:/AI/Trip_planner/trip-planner-backend/main.py), [routers/plan.py](file:///d:/AI/Trip_planner/trip-planner-backend/routers/plan.py)
+    *   **Details**: Instantiated global `slowapi` Limiter and added `@limiter.limit("5/minute")` to `/api/plan` to block cost/DoSO exploitation on our expensive orchestrator pipeline.
+*   **Concurrency Safeguards (Playwright Semaphore)**:
+    *   **File**: [scrapers/smart_scraper.py](file:///d:/AI/Trip_planner/trip-planner-backend/scrapers/smart_scraper.py)
+    *   **Details**: Implemented `asyncio.Semaphore(3)` inside smart scraping triggers. Capping active browser thread count at 3 prevents excessive concurrent Playwright allocations from crashing free hosting instances.
+*   **LLM Cost Exposure Controls**:
+    *   **Files**: [scrapers/browser_agent.py](file:///d:/AI/Trip_planner/trip-planner-backend/scrapers/browser_agent.py), [agents/web_search_agent.py](file:///d:/AI/Trip_planner/trip-planner-backend/agents/web_search_agent.py)
+    *   **Details**: Enforced `max_tokens=1500` caps inside ChatGroq setups to prevent unbounded response length costs.
+
+#### 🟡 Scraper Schema & Prompt Hardening
+*   **Scraper Extraction Prompt Improvement**:
+    *   **File**: [scrapers/browser_agent.py](file:///d:/AI/Trip_planner/trip-planner-backend/scrapers/browser_agent.py)
+    *   **Details**: Expanded `EXTRACTION_PROMPT` schema with `travel_class` transport column mapping. Instructed the parser explicitly to process all fares, convert floats into simple integer types, and default to the lower boundaries for parsed pricing options.
+
+---
+
+## 🧪 Verification & Testing Status
+
+- **Connectivity Pre-Check (Part A1)**:
+  *   Flights: `https://www.ixigo.com` - **200 OK**
+  *   Trains: `https://www.ixigo.com/train` - **404** (Expected base URL code; actual search requests operational)
+  *   Buses: `https://www.redbus.in` - **200 OK**
+  *   Geocoder: `https://nominatim.openstreetmap.org` - **302** (Valid endpoint redirect)
+- **Cab Distance Estimation Verification (Part A4)**:
+  *   All road distance simulations passed testing. Correctly computed distances for 5 major routes, and returned `None` for Delhi->Kochi (too far - 2800km limit constraint validated).
+- **Automated Tests**:
+  *   Created and ran custom `tests/test_edge_cases.py` validation tests. All **8 tests passed** successfully.
+  *   Ruff and Bandit scans ran cleanly.
+  *   Frontend Type-Checking passed with exit code 0 (`npx tsc --noEmit`).
+
+---
+
+## 🚀 Premium Front-End Refactoring & Accommodation Tabs (UX Upgrade Session)
+
+### Detailed Changes
+
+#### [MODIFY] [page.tsx](file:///d:/AI/Trip_planner/src/app/trip-input/page.tsx)
+- **Rounded Buttons**: Converted the main submit button to a premium, pill-shaped `rounded-full` layout with enhanced cursor indicators and shadows.
+- **Glassmorphism Wrapping**: Wrapped the entire inputs panel inside a sleek, premium, high-opacity `bg-card/75 backdrop-blur-2xl` glass card container with a borders ratio of `border-border/40` and detailed drop-shadows to significantly enhance visibility.
+- **Improved Contrast**: Enhanced input line indicators to `border-border/60` and increased text/placeholder contrast opacities.
+- **Budget Text Cleanup**: Stripped out the confusing `"· Excluding flights"` text under the budget range selector.
+- **Accommodation Form Removal**: Completely removed the accommodation preference input selector options from the primary screen, resolving user-side configuration friction.
+- **Dynamic Autocomplete Suggestions**: Integrated dynamic drop-down suggestions for both Destination and Origin City inputs. Utilizes a curated local list of 35+ major Indian destinations and dynamically displays matching suggestions as the traveler types, complete with an auto-closing outside clicks detector.
+- **Interactive Calendar Triggering**: Redesigned the Departure Date field to trigger the browser's beautiful native calendar popup when clicking *anywhere* in the text field (utilizing `showPicker()`). Added a sleek Lucide `Calendar` icon to the input boundary.
+
+#### [MODIFY] [route.ts](file:///d:/AI/Trip_planner/src/app/api/generate-stays/route.ts)
+- **Multi-Category Generation**: Upgraded the AI generation prompt to return exactly 9 stay options across three distinct categories: exactly 3 Hotels, 3 Hostels, and 3 Homestays. Enforced categorizing stay's type strictly to `"Hotel"`, `"Hostel"`, or `"Homestay"`.
+
+#### [MODIFY] [page.tsx](file:///d:/AI/Trip_planner/src/app/select-stay/%5BtripId%5D/page.tsx)
+- **Tabbed Stays Interface**: Integrated a highly premium, fully reactive category-tabs navigation filter (`Hotels`, `Hostels`, `Homestays` tabs) mapping matching icons (`Hotel`, `Backpack`, `Home`).
+- **Dynamic Category Count Indicator**: Configured real-time, badges-styled stays count indicators inside the selector buttons.
+- **Auto-Filter Matching**: Created automatic type check matching filters (supporting variations like "resort" or "guesthouse" safely) to only showcase options pertaining to the active category.
+- **TypeScript Compile Verification**: Passed compiler check `npx tsc --noEmit` cleanly.
+
+

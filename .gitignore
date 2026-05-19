@@ -43,3 +43,8 @@ next-env.d.ts
 # vector store cache
 *.faiss
 *.pkl
+
+# local reports and scratch scripts
+*_report.txt
+test_failures.txt
+edit_*.js

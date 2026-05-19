@@ -19,3 +19,7 @@ class TripState(TypedDict):
     warnings: List[str]
     validation_report: Optional[dict]
     data_freshness: Optional[str]
+    origin_city: str
+    selected_transport: Optional[dict]
+    transport_cost_inr: int
+    remaining_budget_inr: int

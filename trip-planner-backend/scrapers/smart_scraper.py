@@ -60,6 +60,10 @@ class ScrapedBundle:
 # SmartScraper
 # ---------------------------------------------------------------------------
 
+# Max 3 concurrent Playwright browser instances to prevent resource exhaustion
+_browser_semaphore = asyncio.Semaphore(3)
+
+
 class SmartScraper:
     """
     Orchestrates BrowserAgent across multiple sites in parallel.
@@ -94,9 +98,9 @@ class SmartScraper:
             logger.warning("SmartScraper: No matching site configs found.")
             return bundle
 
-        # 2. Parallel scrape with per-site timeout
+        # 2. Parallel scrape with per-site timeout (semaphore-limited)
         tasks = [
-            self._scrape_one_site(cfg, destination, timeout_per_site)
+            self._scrape_one_site_safe(cfg, destination, timeout_per_site)
             for cfg in configs
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -133,6 +137,16 @@ class SmartScraper:
         bundle.local_insights = list(dict.fromkeys(bundle.local_insights))  # ordered dedup
 
         return bundle
+
+    async def _scrape_one_site_safe(
+        self,
+        config: dict,
+        destination: dict,
+        timeout_per_site: int,
+    ) -> dict:
+        """Rate-limited wrapper: acquires semaphore before launching browser."""
+        async with _browser_semaphore:
+            return await self._scrape_one_site(config, destination, timeout_per_site)
 
     async def _scrape_one_site(
         self,

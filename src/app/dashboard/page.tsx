@@ -117,11 +117,24 @@ export default function DashboardPage() {
         const name = user.user_metadata?.full_name || user.email?.split('@')[0] || "Traveler"
         setUserName(name)
 
-        const { data: userTrips } = await supabase
+        let { data: userTrips, error: tripsError } = await supabase
           .from('trips')
           .select("id, destination, duration_days, budget_range, preference, review_rating, review_text, plan_data, created_at, status")
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
+          
+        if (tripsError && tripsError.code === '42703') {
+          const fallback = await supabase
+            .from('trips')
+            .select("id, destination, duration_days, budget_range, preference, plan_data, created_at, status")
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+          userTrips = (fallback.data || []).map((t: any) => ({
+            ...t,
+            review_rating: null,
+            review_text: null
+          })) as any
+        }
           
         if (userTrips) {
           setTrips(userTrips)
@@ -163,24 +176,24 @@ export default function DashboardPage() {
         </motion.div>
       </div>
 
-      {/* Editorial Stats — Horizontal with large serif numbers */}
+      {/* Editorial Stats — Horizontal with large serif numbers in glass panel */}
       <motion.div 
-        className="grid grid-cols-3 gap-8"
+        className="grid grid-cols-3 gap-4 md:gap-8 glass-card p-6 md:p-8 rounded-3xl"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.6 }}
       >
         <div className="text-center">
-          <p className="font-serif text-5xl md:text-6xl text-foreground">{trips.length}</p>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mt-2">Journeys Planned</p>
+          <p className="font-serif text-4xl md:text-5xl text-foreground">{trips.length}</p>
+          <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mt-2">Journeys Planned</p>
         </div>
-        <div className="text-center border-x border-border/50">
-          <p className="font-serif text-5xl md:text-6xl text-foreground">{destinationsVisited}</p>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mt-2">Destinations</p>
+        <div className="text-center border-x border-border/30">
+          <p className="font-serif text-4xl md:text-5xl text-foreground">{destinationsVisited}</p>
+          <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mt-2">Destinations</p>
         </div>
         <div className="text-center">
-          <p className="font-serif text-5xl md:text-6xl text-foreground">{totalActivities}</p>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mt-2">Experiences</p>
+          <p className="font-serif text-4xl md:text-5xl text-foreground">{totalActivities}</p>
+          <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mt-2">Experiences</p>
         </div>
       </motion.div>
 
@@ -189,23 +202,23 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 border-b border-border/50 pb-4">
           <h2 className="font-serif text-2xl tracking-tight">Your Itineraries</h2>
           
-          <div className="flex gap-0">
+          <div className="flex gap-1 bg-card/30 p-1 border border-border/40 rounded-full backdrop-blur-sm">
             <button
               onClick={() => setActiveTab('upcoming')}
-              className={`px-5 py-2 text-[10px] uppercase tracking-[0.15em] font-medium border transition-all ${
+              className={`px-5 py-2 text-[10px] uppercase tracking-[0.15em] font-medium rounded-full transition-all ${
                 activeTab === 'upcoming' 
-                  ? 'bg-foreground text-background border-foreground' 
-                  : 'border-border/60 text-muted-foreground hover:text-foreground'
+                  ? 'bg-foreground text-background shadow-md' 
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Upcoming ({upcomingTrips.length})
             </button>
             <button
               onClick={() => setActiveTab('past')}
-              className={`px-5 py-2 text-[10px] uppercase tracking-[0.15em] font-medium border border-l-0 transition-all ${
+              className={`px-5 py-2 text-[10px] uppercase tracking-[0.15em] font-medium rounded-full transition-all ${
                 activeTab === 'past' 
-                  ? 'bg-foreground text-background border-foreground' 
-                  : 'border-border/60 text-muted-foreground hover:text-foreground'
+                  ? 'bg-foreground text-background shadow-md' 
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Past ({pastTrips.length})
@@ -257,7 +270,7 @@ export default function DashboardPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1, duration: 0.5 }}
                   >
-                    <div className="group overflow-hidden border border-border/50 bg-card/50 backdrop-blur-sm hover:border-[var(--gold)]/30 transition-all duration-500 flex flex-col h-full">
+                    <div className="group overflow-hidden rounded-2xl glass-card hover:border-[var(--gold)]/40 hover:-translate-y-1 transition-all duration-500 flex flex-col h-full">
                       {/* Image or gradient header */}
                       <div className="h-40 w-full relative overflow-hidden">
                         {heroImg ? (

@@ -4,14 +4,7 @@ import { MapPin, ArrowLeft } from "lucide-react"
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
-        <div className="container max-w-4xl mx-auto flex h-16 items-center px-4">
-          <Link href="/" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Back to Home
-          </Link>
-        </div>
-      </header>
+
 
       <main className="container max-w-4xl mx-auto px-4 py-16">
         <div className="flex items-center gap-3 mb-8">

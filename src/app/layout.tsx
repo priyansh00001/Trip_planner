@@ -23,6 +23,9 @@ export const metadata: Metadata = {
   description: "Generate complete, personalized travel plans with AI. Find stays, hidden gems, and local food spots in seconds.",
 };
 
+import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -41,7 +44,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <Navbar />
           {children}
+          <Footer />
         </ThemeProvider>
       </body>
     </html>

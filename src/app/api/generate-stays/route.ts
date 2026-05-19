@@ -14,29 +14,28 @@ export async function POST(request: Request) {
 
   try {
     const tripData = await request.json()
-    const { destination, budget_range, preference } = tripData
+    const { destination, budget_range, remaining_budget_inr, preference } = tripData
+    const budgetInr = remaining_budget_inr || budget_range
 
     const prompt = `You are a travel accommodation expert for India.
 A traveler is planning a trip to ${destination}, India.
-Their total budget is approximately ₹${budget_range} INR.
-They prefer staying in: ${preference}.
+Their available budget for accommodation and activities is approximately ₹${budgetInr} INR.
 
-Return EXACTLY 6-8 real, well-known, highly-rated stays in ${destination}. 
-Include a mix of budget and premium options if possible, but mostly stick to their preference of ${preference}.
+Return EXACTLY 9 real, well-known, highly-rated stays in ${destination}, consisting of exactly 3 'Hotel' options, exactly 3 'Hostel' options, and exactly 3 'Homestay' options.
 
 CRITICAL RULES:
-1. Every hotel/hostel MUST be a real, existing establishment in ${destination}.
+1. Every hotel/hostel/homestay MUST be a real, existing establishment in ${destination}.
 2. Include accurate latitude and longitude coordinates for EVERY stay.
 3. Include an estimated price per night in INR.
-4. Categorize each stay (e.g., Hostel, Budget Hotel, Luxury Resort, Homestay).
+4. Categorize each stay's type field EXACTLY as one of these values: "Hotel", "Hostel", or "Homestay".
 
 Return ONLY a valid JSON object with this exact structure:
 {
   "stays": [
     {
       "id": "unique-string-id",
-      "name": "REAL hotel/hostel name",
-      "type": "Category (e.g., Luxury Resort, Backpacker Hostel)",
+      "name": "REAL hotel/hostel/homestay name",
+      "type": "Hotel, Hostel, or Homestay",
       "rating": 4.5,
       "price": "₹XXXX/night",
       "whyStay": "One compelling reason to stay here",

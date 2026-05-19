@@ -19,3 +19,4 @@ pytest
 pytest-asyncio
 pytest-timeout
 python-slugify
+slowapi

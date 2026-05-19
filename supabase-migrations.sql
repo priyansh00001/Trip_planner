@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS trips (
     budget_range TEXT NOT NULL,
     preference TEXT,
     status TEXT DEFAULT 'generating_stays' CHECK (status IN (
-        'generating', 'generating_stays', 'selecting_stay', 
+        'generating', 'selecting_transport', 'generating_stays', 'selecting_stay', 
         'generating_itinerary', 'completed', 'completed_and_reviewed', 'failed'
     )),
     start_date DATE DEFAULT CURRENT_DATE,

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 from core.models import TripRequest
@@ -8,6 +8,7 @@ from vector_store.faiss_store import trip_store
 import json, asyncio, os
 
 router = APIRouter()
+
 
 # Human-readable status messages
 NODE_STATUS_MESSAGES = {
@@ -23,8 +24,12 @@ NODE_STATUS_MESSAGES = {
 }
 
 
+from core.rate_limit import limiter
+
 @router.post("/plan")
+@limiter.limit("5/minute")
 async def plan_trip(
+    request: Request,
     req: TripRequest,
     x_internal_token: str | None = Header(None, alias="X-Internal-Token"),
 ):
@@ -48,8 +53,17 @@ async def plan_trip(
         return EventSourceResponse(cached_stream())
 
     async def event_stream():
+        budget_inr = int(req.budget_usd * 83)
+        transport_cost = req.transport_cost_inr or 0
+        remaining_budget = budget_inr - (transport_cost * 2)
+        req.remaining_budget_inr = remaining_budget
+
         initial_state: TripState = {
             "request": req,
+            "origin_city": req.origin_city,
+            "selected_transport": req.selected_transport,
+            "transport_cost_inr": transport_cost,
+            "remaining_budget_inr": remaining_budget,
             "weather": None, "flights": None,
             "places": None, "currency": None,
             "web_search": None, "hotels": None,

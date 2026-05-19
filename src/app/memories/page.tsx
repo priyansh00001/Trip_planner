@@ -155,23 +155,7 @@ export default function MemoriesPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Editorial Header */}
-      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard">
-              <button className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground hover:text-foreground transition-colors">
-                <ArrowLeft className="h-3.5 w-3.5" /> Back
-              </button>
-            </Link>
-            <div className="h-4 w-px bg-border/50" />
-            <div className="flex items-center gap-2.5">
-              <Film className="h-4 w-4 text-[var(--gold)]" />
-              <span className="font-serif text-lg tracking-wide">Travel Memoir</span>
-            </div>
-          </div>
-        </div>
-      </header>
+
 
       <div className="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row gap-10">
         

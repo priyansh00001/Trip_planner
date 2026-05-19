@@ -1,6 +1,6 @@
 # 🤝 Contributing to AI Trip Planner
 
-Welcome! We are excited that you want to contribute to the **AI Trip Planner** (Yatra). By contributing to this project, you help make travel planning more accessible, intelligent, and secure for everyone.
+Welcome! We are excited that you want to contribute to the **AI Trip Planner** (Karyakram). By contributing to this project, you help make travel planning more accessible, intelligent, and secure for everyone.
 
 Please take a moment to review this guide to ensure a smooth, secure, and productive contribution workflow.
 

@@ -439,6 +439,46 @@ export default function TripPlanPage() {
           })()}
         </div>
 
+        {/* Confirmed Transit Banner */}
+        {(() => {
+          const selectedTransport = typeof trip?.selected_transport === "string" ? JSON.parse(trip.selected_transport) : trip?.selected_transport
+          if (!selectedTransport) return null
+          return (
+            <motion.div
+              className="mb-10"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <h2 className="text-xl font-serif mb-6 flex items-center text-foreground">
+                Your Transit Route
+              </h2>
+              <Card className="relative overflow-hidden rounded-none border border-border bg-transparent shadow-none">
+                <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary/20" />
+                <CardContent className="p-6 sm:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                      <span className="text-[10px] tracking-widest text-muted-foreground uppercase mb-2 block">
+                        Confirmed Transit · {selectedTransport.mode}
+                      </span>
+                      <h3 className="font-bold text-xl leading-tight">{selectedTransport.operator}</h3>
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        Route: {trip.origin_city || trip.originCity || "Delhi"} ⇄ {plan.destination} · Est. {Math.floor(selectedTransport.duration_minutes / 60)}h {selectedTransport.duration_minutes % 60}m
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="block text-[8px] uppercase tracking-[0.15em] text-muted-foreground mb-1">Round Trip Cost</span>
+                      <span className="font-serif text-xl text-[var(--gold)] font-bold">
+                        ₹{(selectedTransport.price_min_inr * 2).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )
+        })()}
+
         {/* Confirmed Basecamp Banner */}
         {plan.confirmed_stay && (
           <motion.div

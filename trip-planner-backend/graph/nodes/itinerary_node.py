@@ -29,6 +29,19 @@ async def itinerary_node(state: dict) -> dict:
 
     # Calculate budget in INR
     budget_inr = int(req.budget_usd * 83)
+    selected_transport = state.get("selected_transport") or {}
+    transport_cost_inr = state.get("transport_cost_inr") or 0
+    remaining_budget_inr = state.get("remaining_budget_inr") or budget_inr
+
+    transport_str = ""
+    if selected_transport:
+        transport_str = f"""
+TRANSPORT TO DESTINATION:
+{selected_transport.get('mode', 'Unknown')} with {selected_transport.get('operator', 'Unknown')}
+Cost: ₹{transport_cost_inr} per person (×2 for return)
+Duration: {selected_transport.get('duration_minutes', '?')} minutes
+Budget remaining after transport: ₹{remaining_budget_inr}
+Use remaining_budget_inr for all hotel and activity recommendations."""
 
     system_prompt = """You are India's #1 travel expert and local guide. You have encyclopedic knowledge of every famous cafe, restaurant, beach, temple, museum, market, trek, and hidden gem across India.
 You will build a hyper-detailed, day-by-day travel plan using real places, hotels, and activities.
@@ -117,6 +130,7 @@ Dates: {req.start_date} to {req.end_date} ({n_days} days)
 Budget: ₹{budget_inr:,} total for {req.travelers} people
 Style: {req.style}
 Origin: {req.origin_city}
+{transport_str}
 
 {stay_context}
 
