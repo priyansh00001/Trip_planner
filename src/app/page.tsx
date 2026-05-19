@@ -94,7 +94,7 @@ export default function Home() {
                     type="submit"
                     className="shrink-0 flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-bold px-6 py-3.5 bg-foreground text-background rounded-full hover:bg-foreground/90 transition-all cursor-pointer"
                   >
-                    Explore <Sparkles className="h-3 w-3" />
+                    Explore
                   </button>
                 </div>
               </form>
