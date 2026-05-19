@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { MapPin, Calendar, Wallet, Building2, Coffee, Mountain, Compass, Utensils, Camera, ArrowLeft, Bus, Train, Navigation, Loader2, Star, Clock, Sparkles, Printer, Share2, Check, Music, Wine, MessageSquarePlus, Lock, ExternalLink, Briefcase, CheckCircle2, PenLine, Car, X, Shield, Plus, RefreshCcw, CloudRain, Lightbulb, UtensilsCrossed, Languages, ThumbsUp } from "lucide-react"
+import { MapPin, Calendar, Wallet, Building2, Coffee, Mountain, Compass, Utensils, Camera, ArrowLeft, Bus, Train, Navigation, Loader2, Star, Clock, Sparkles, Printer, Share2, Check, Music, Wine, MessageSquarePlus, Lock, ExternalLink, Briefcase, CheckCircle2, PenLine, Car, X, Shield, Plus, RefreshCcw, CloudRain, Lightbulb, UtensilsCrossed, Languages, ThumbsUp, Sun } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
@@ -748,7 +748,7 @@ export default function TripPlanPage() {
                           {activity.indoorAlternative && !isDone && (
                             <div className="mt-4 pt-4 flex justify-end no-print">
                               <button 
-                                onClick={() => toggleSwap(`${idx}-${actIdx}`)}
+                                onClick={() => toggleSwap(idx, actIdx)}
                                 className={`flex items-center gap-2 text-[10px] uppercase tracking-widest font-medium px-4 py-2 border transition-all ${
                                   isSwapped 
                                     ? 'bg-transparent text-foreground border-foreground/30 hover:bg-foreground/5' 
