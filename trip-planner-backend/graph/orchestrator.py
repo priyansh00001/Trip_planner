@@ -34,12 +34,10 @@ from graph.nodes import (
 )
 from agents.currency_agent import CurrencyAgent
 from agents.web_search_agent import WebSearchAgent
-from langchain_groq import ChatGroq
 from core.config import settings
 import json, logging
 
 logger = logging.getLogger(__name__)
-llm = ChatGroq(api_key=settings.GROQ_API_KEY, model="llama-3.3-70b-versatile")
 
 
 # ─────────────────────────── assemble function (kept inline) ─────────────────

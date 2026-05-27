@@ -9,6 +9,7 @@ import {
   AlertCircle, Eye
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { getAnonState, saveAnonState } from "@/lib/anonymousState"
 import AuthModal from "@/components/AuthModal"
 import { TripProgressBar } from "@/components/TripProgressBar"
 
@@ -267,9 +268,9 @@ export default function PickPlacesPage() {
     async function loadTrip() {
       if (!params?.tripId) return
       if (params.tripId === "anonymous") {
-        const stored = localStorage.getItem("anonymous_trip")
+        const stored = getAnonState()
         if (!stored) { router.push("/trip-input"); return }
-        setTrip({ ...JSON.parse(stored), id: "anonymous" })
+        setTrip({ ...stored, id: "anonymous" })
         setLoading(false)
       } else {
         const supabase = createClient()
@@ -286,12 +287,13 @@ export default function PickPlacesPage() {
     if (!trip?.destination || placesCache[category]) return
     setLoadingCategory(true)
     try {
-      const res = await fetch(`/api/places/search?city=${encodeURIComponent(trip.destination)}&category=${category}`)
+      const isAnonymous = params?.tripId === "anonymous"
+      const res = await fetch(`/api/places/search?city=${encodeURIComponent(trip.destination)}&category=${category}&authenticated=${!isAnonymous}`)
       const data = await res.json()
       if (data.places) setPlacesCache(prev => ({ ...prev, [category]: data.places }))
     } catch (err) { console.error("Failed to fetch places:", err) }
     setLoadingCategory(false)
-  }, [trip?.destination, placesCache])
+  }, [trip?.destination, placesCache, params?.tripId])
 
   useEffect(() => {
     if (trip?.destination) fetchPlaces(activeCategory)
@@ -309,7 +311,15 @@ export default function PickPlacesPage() {
   const handleContinue = async () => {
     if (!trip?.id || selectedPlaces.length === 0) return
     setContinuing(true)
-    if (params?.tripId === "anonymous") { setIsAuthModalOpen(true); setContinuing(false); return }
+    if (params?.tripId === "anonymous") { 
+      saveAnonState({
+        plan_data: { ...trip?.plan_data, selected_places: selectedPlaces },
+        lastCompletedStep: 'pick-places'
+      })
+      setIsAuthModalOpen(true)
+      setContinuing(false)
+      return 
+    }
 
     const supabase = createClient()
     await supabase

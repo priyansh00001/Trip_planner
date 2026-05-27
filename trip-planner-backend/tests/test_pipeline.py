@@ -54,7 +54,7 @@ async def test_full_pipeline_jaipur():
 
     # Assert each day has required keys
     for day in final["days"]:
-        assert "day_number" in day
+        assert "day_number" in day or "dayNumber" in day
 
     # Assert budget breakdown exists
     assert "budget_breakdown" in final.get("_meta", {})

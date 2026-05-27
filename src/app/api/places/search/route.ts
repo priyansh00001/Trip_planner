@@ -27,6 +27,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'City is required' }, { status: 400 })
   }
 
+  const authenticated = searchParams.get('authenticated') !== 'false'
+
   const BACKEND = process.env.PYTHON_BACKEND_URL ?? "http://localhost:8000";
   const citySlug = city.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
 
   // Step 1: Try fetching authentic scraped data from our FastAPI backend
   try {
-    const res = await fetch(`${BACKEND}/api/destinations/${citySlug}`);
+    const res = await fetch(`${BACKEND}/api/destinations/${citySlug}?authenticated=${authenticated}`);
     if (res.ok) {
       const data = await res.json();
       const rawPlaces = data.places || [];

@@ -8,6 +8,7 @@ import {
   Check, ArrowRight, Hotel, Backpack, Home
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { getAnonState, saveAnonState } from "@/lib/anonymousState"
 import { TripProgressBar } from "@/components/TripProgressBar"
 
 const tabItems = [
@@ -47,9 +48,9 @@ export default function SelectStayPage() {
       if (!params?.tripId) return
 
       if (params.tripId === "anonymous") {
-        const stored = localStorage.getItem("anonymous_trip")
+        const stored = getAnonState()
         if (!stored) { router.push("/trip-input"); return }
-        const data = JSON.parse(stored)
+        const data = stored
         setTrip(data)
         setStays(data.plan_data?.stays || [])
         setLoading(false)
@@ -75,11 +76,11 @@ export default function SelectStayPage() {
     if (!chosenStay) return
 
     if (params?.tripId === "anonymous") {
-      localStorage.setItem("anonymous_trip", JSON.stringify({
-        ...trip,
+      saveAnonState({
         plan_data: { ...trip.plan_data, confirmed_stay: chosenStay },
-        status: 'generating_itinerary'
-      }))
+        status: 'generating_itinerary',
+        lastCompletedStep: 'select-stay'
+      })
       router.push(`/pick-places/anonymous`)
     } else {
       const supabase = createClient()

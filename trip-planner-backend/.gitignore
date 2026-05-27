@@ -16,6 +16,7 @@ env/
 # FAISS Vector Index Data
 data/faiss/*.faiss
 data/faiss/*.pkl
+data/extraction_cache.pkl
 
 # Testing & Cache
 .pytest_cache/

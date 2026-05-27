@@ -97,9 +97,18 @@ async def budget_node(state: dict) -> dict:
         over_by = total_estimated - original_budget
         warnings.append(f"Estimated cost ₹{total_estimated:,} exceeds budget by ₹{over_by:,}")
 
+    hotel_search_url = (
+        f"https://www.makemytrip.com/hotels/hotel-listing/"
+        f"?checkin={req.start_date}"
+        f"&checkout={req.end_date}"
+        f"&roomCount=1&adultsCount={req.travelers}"
+        f"&city={req.destination.replace(' ', '%20')}"
+    )
+
     return {
         "budget_breakdown": breakdown,
         "warnings": warnings,
+        "hotel_search_url": hotel_search_url,
     }
 
 

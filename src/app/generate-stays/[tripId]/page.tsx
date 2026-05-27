@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Loader2, AlertCircle } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
-
+import { getAnonState, saveAnonState } from "@/lib/anonymousState"
 const loadingSteps = [
   "Searching for the best stays",
   "Comparing hostels & hotels",
@@ -36,9 +36,9 @@ export default function GenerateStaysPage() {
         let tripData: any = null
 
         if (params.tripId === "anonymous") {
-          const stored = localStorage.getItem("anonymous_trip")
+          const stored = getAnonState()
           if (!stored) { router.push("/trip-input"); return }
-          tripData = JSON.parse(stored)
+          tripData = stored
         } else {
           const supabase = createClient()
           const { data, error: tripError } = await supabase
@@ -57,11 +57,11 @@ export default function GenerateStaysPage() {
         if (!res.ok) throw new Error(data.error || "Failed to generate stay options")
 
         if (params.tripId === "anonymous") {
-          localStorage.setItem("anonymous_trip", JSON.stringify({
-            ...tripData,
+          saveAnonState({
             plan_data: { stays: data.stays, destination: tripData.destination },
-            status: 'selecting_stay'
-          }))
+            status: 'selecting_stay',
+            lastCompletedStep: 'generate-stays'
+          })
           router.push(`/select-stay/anonymous`)
         } else {
           const supabase = createClient()

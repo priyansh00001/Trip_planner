@@ -127,7 +127,7 @@ async def compare_destinations(
 
 
 @router.get("/{slug}")
-async def get_destination_detail(slug: str):
+async def get_destination_detail(slug: str, authenticated: bool = Query(True)):
     """
     Get full destination detail with places, hotels, events, news, blogs.
     """
@@ -135,22 +135,23 @@ async def get_destination_detail(slug: str):
     dest_response = db.table("destinations").select("*").eq("slug", slug).execute()
 
     if not dest_response.data:
-        # Try on-demand discovery
-        from scrapers.on_demand import OnDemandScraper
-        on_demand = OnDemandScraper()
-        result = await on_demand.handle_unknown_destination(slug)
+        if authenticated:
+            # Try on-demand discovery
+            from scrapers.on_demand import OnDemandScraper
+            on_demand = OnDemandScraper()
+            result = await on_demand.handle_unknown_destination(slug)
 
-        if result.found:
-            return JSONResponse(
-                status_code=202,
-                content={
-                    "status": "discovering",
-                    "destination": result.destination,
-                    "scraping_in_progress": True,
-                    "message": result.message,
-                    "data_quality_score": 0,
-                },
-            )
+            if result.found:
+                return JSONResponse(
+                    status_code=202,
+                    content={
+                        "status": "discovering",
+                        "destination": result.destination,
+                        "scraping_in_progress": True,
+                        "message": result.message,
+                        "data_quality_score": 0,
+                    },
+                )
         return JSONResponse(
             status_code=404,
             content={"error": "Destination not found", "query": slug},

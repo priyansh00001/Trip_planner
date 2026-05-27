@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { MapPin, Loader2, Eye, EyeOff, X, Sparkles, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+import { getAnonState, saveAnonState, clearAnonState } from "@/lib/anonymousState"
 import { motion, AnimatePresence } from "framer-motion"
 
 interface AuthModalProps {
@@ -61,10 +62,8 @@ export default function AuthModal({ isOpen, onClose, selectedPlaces }: AuthModal
       if (!user) throw new Error("Could not authenticate user.")
 
       // Post-auth: Check local storage for anonymous trip details
-      const anonTripStr = localStorage.getItem("anonymous_trip")
-      if (anonTripStr) {
-        const anonTrip = JSON.parse(anonTripStr)
-        
+      const anonTrip = getAnonState()
+      if (anonTrip) {
         // Write the trip to Supabase
         const { data: newTrip, error: insertError } = await supabase
           .from("trips")
@@ -72,10 +71,14 @@ export default function AuthModal({ isOpen, onClose, selectedPlaces }: AuthModal
             user_id: user.id,
             destination: anonTrip.destination,
             duration_days: anonTrip.duration_days,
-            budget_range: String(anonTrip.budget_range),
+            budget_range: String(anonTrip.budget_range || anonTrip.budget),
             preference: anonTrip.preference || "No Preference",
             status: "generating_itinerary",
-            start_date: anonTrip.start_date || new Date().toISOString().split("T")[0],
+            start_date: anonTrip.start_date || anonTrip.startDate || new Date().toISOString().split("T")[0],
+            origin_city: anonTrip.originCity || anonTrip.origin_city || anonTrip.source,
+            selected_transport: anonTrip.selected_transport || null,
+            transport_cost_inr: anonTrip.transport_cost_inr || null,
+            remaining_budget_inr: anonTrip.remaining_budget_inr || null,
             plan_data: {
               stays: anonTrip.plan_data?.stays || [],
               confirmed_stay: anonTrip.plan_data?.confirmed_stay || null,
@@ -99,7 +102,7 @@ export default function AuthModal({ isOpen, onClose, selectedPlaces }: AuthModal
         if (insertError) throw new Error(`Failed to save trip: ${insertError.message}`)
 
         // Clear anonymous cache
-        localStorage.removeItem("anonymous_trip")
+        clearAnonState()
 
         // Redirect immediately to generate itinerary loading screen!
         onClose()
@@ -122,11 +125,9 @@ export default function AuthModal({ isOpen, onClose, selectedPlaces }: AuthModal
     const supabase = createClient()
     
     // Cache the selected places in localStorage so that when they redirect back we can catch it!
-    const anonTripStr = localStorage.getItem("anonymous_trip")
-    if (anonTripStr) {
-      const anonTrip = JSON.parse(anonTripStr)
-      localStorage.setItem("anonymous_trip", JSON.stringify({
-        ...anonTrip,
+    const anonTrip = getAnonState()
+    if (anonTrip) {
+      saveAnonState({
         plan_data: {
           ...anonTrip.plan_data,
           selected_places: selectedPlaces.map(p => ({
@@ -142,7 +143,7 @@ export default function AuthModal({ isOpen, onClose, selectedPlaces }: AuthModal
             priceLevel: p.priceLevel,
           }))
         }
-      }))
+      })
     }
 
     await supabase.auth.signInWithOAuth({

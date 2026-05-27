@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { MapPin, Loader2, Eye, EyeOff } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { getAnonState, clearAnonState } from "@/lib/anonymousState"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,21 +20,83 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError(error.message)
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    if (signInError) {
+      setError(signInError.message)
       setLoading(false)
     } else {
-      router.push("/dashboard")
+      const nextUrl = new URLSearchParams(window.location.search).get("next") || "/dashboard"
+      const anonState = getAnonState()
+      
+      if (anonState) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { error: insertError, data } = await supabase.from('trips').insert({
+              user_id: user.id,
+              origin_city: anonState.originCity || anonState.source,
+              destination: anonState.destination,
+              duration_days: anonState.duration_days,
+              budget_range: anonState.budget_range || anonState.budget,
+              preference: anonState.preference,
+              start_date: anonState.start_date || anonState.startDate,
+              status: anonState.status || 'selecting_transport',
+              plan_data: anonState.plan_data,
+              selected_transport: anonState.selected_transport,
+              transport_cost_inr: anonState.transport_cost_inr,
+              remaining_budget_inr: anonState.remaining_budget_inr,
+            }).select().single()
+            
+            if (insertError) {
+              console.error("Migration failed:", insertError)
+            } else {
+              // If we are migrating an anonymous state that is mid-flow, we redirect them to the right place
+              if (anonState.lastCompletedStep === 'trip-input') {
+                router.push(`/select-transport/${data.id}`)
+              } else if (anonState.lastCompletedStep === 'select-transport') {
+                router.push(`/generate-stays/${data.id}`)
+              } else if (anonState.lastCompletedStep === 'generate-stays') {
+                router.push(`/select-stay/${data.id}`)
+              } else if (anonState.lastCompletedStep === 'select-stay') {
+                router.push(`/pick-places/${data.id}`)
+              } else if (anonState.lastCompletedStep === 'pick-places') {
+                // If they finished picking places, they should go to generate-itinerary or dashboard
+                router.push(`/dashboard`)
+              } else {
+                router.push(nextUrl)
+              }
+              clearAnonState()
+              router.refresh()
+              return
+            }
+          }
+        } catch (err) {
+          console.error("Migration error:", err)
+        }
+        clearAnonState()
+      }
+      
+      // If we didn't migrate a mid-flight state and handle its routing above
+      // Or if migration failed
+      const safeNextUrl = nextUrl.includes("anonymous") ? "/dashboard" : nextUrl;
+      router.push(safeNextUrl)
       router.refresh()
     }
   }
 
   const handleGoogleLogin = async () => {
+    // We send them to dashboard for the OAuth callback so that the dashboard page can handle the anon migration.
+    // However, if they have no anon state, we can send them to nextUrl
+    const nextUrl = new URLSearchParams(window.location.search).get("next") || "/dashboard"
+    const hasAnonState = typeof window !== "undefined" && !!localStorage.getItem("anonymous_trip")
+    
+    // Pass the actual nextUrl so dashboard can use it after migration, or use dashboard directly
+    const callbackNext = hasAnonState ? `/dashboard?postLoginNext=${encodeURIComponent(nextUrl)}` : nextUrl
+    
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${location.origin}/auth/callback?next=/dashboard` },
+      options: { redirectTo: `${location.origin}/auth/callback?next=${encodeURIComponent(callbackNext)}` },
     })
   }
 

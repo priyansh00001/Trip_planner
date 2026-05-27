@@ -79,7 +79,7 @@ class FlightAgent(BaseAgent):
         """Return a structured placeholder when the API is unavailable."""
         return {
             "route":    f"{origin} → {dest}",
-            "airlines": ["IndiGo", "Air India", "SpiceJet"],  # common Indian carriers
+            "airlines": [],
             "sample_flights": [],
             "booking_link": self._google_flights_link(origin, dest, req.start_date),
             "note": (

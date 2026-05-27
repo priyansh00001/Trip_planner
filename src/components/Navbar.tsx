@@ -15,12 +15,23 @@ export function Navbar() {
   const isHidden = pathname?.startsWith('/generate-stays') || pathname?.startsWith('/generate/') || pathname === '/generate' || ['/login', '/signup', '/forgot-password', '/check-email', '/reset-password'].includes(pathname || '')
   
   useEffect(() => {
-    async function getUser() {
-      const supabase = createClient()
+    const supabase = createClient()
+    
+    // Get initial session
+    async function getInitialSession() {
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user || null)
     }
-    getUser()
+    getInitialSession()
+
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
   
   if (isHidden) return null
@@ -46,9 +57,11 @@ export function Navbar() {
           )}
           
           <div className="hidden md:flex items-center gap-8">
-            <Link href="/dashboard" className={`text-[10px] uppercase tracking-[0.25em] font-bold transition-all ${pathname === '/dashboard' ? 'text-[var(--gold)]' : 'text-muted-foreground hover:text-foreground'}`}>
-              My Trips
-            </Link>
+            {user && (
+              <Link href="/dashboard" className={`text-[10px] uppercase tracking-[0.25em] font-bold transition-all ${pathname === '/dashboard' ? 'text-[var(--gold)]' : 'text-muted-foreground hover:text-foreground'}`}>
+                My Trips
+              </Link>
+            )}
             <Link href="/trip-input" className={`text-[10px] uppercase tracking-[0.25em] font-bold transition-all ${pathname === '/trip-input' ? 'text-[var(--gold)]' : 'text-muted-foreground hover:text-foreground'}`}>
               Plan a Trip
             </Link>
@@ -92,9 +105,11 @@ export function Navbar() {
         
         {isOpen && (
           <div className="md:hidden absolute top-16 left-4 right-4 bg-card/95 backdrop-blur-md border border-[var(--gold)]/20 shadow-xl rounded-3xl p-6 flex flex-col gap-6">
-            <Link href="/dashboard" onClick={() => setIsOpen(false)} className={`text-xs uppercase tracking-[0.2em] font-medium ${pathname === '/dashboard' ? 'text-[var(--gold)]' : 'text-foreground'}`}>
-              My Trips
-            </Link>
+            {user && (
+              <Link href="/dashboard" onClick={() => setIsOpen(false)} className={`text-xs uppercase tracking-[0.2em] font-medium ${pathname === '/dashboard' ? 'text-[var(--gold)]' : 'text-foreground'}`}>
+                My Trips
+              </Link>
+            )}
             <Link href="/trip-input" onClick={() => setIsOpen(false)} className={`text-xs uppercase tracking-[0.2em] font-medium ${pathname === '/trip-input' ? 'text-[var(--gold)]' : 'text-foreground'}`}>
               Plan a Trip
             </Link>

@@ -1,6 +1,6 @@
 # IMPLEMENTATION NOTE:
 # Flight node - fetches flight options with database fallback.
-# First queries flights table for cached results.
+# First queries transport_options table for cached scraped flights.
 # If empty, falls back to AviationStack/Google Flights.
 
 import logging
@@ -11,50 +11,53 @@ logger = logging.getLogger(__name__)
 
 
 async def flight_node(state: dict) -> dict:
-    """Fetch flight options with DB fallback."""
+    """Fetch flight options with transport_options DB fallback."""
     from core.supabase_client import db
 
     req = state["request"]
-    destination_slug = req.destination.lower().replace(" ", "-")
-
-    # Normalize to IATA codes
-    origin_iata = req.origin_city.strip()[:3].upper()
-    dest_iata = req.destination.strip()[:3].upper()
+    
+    # Normalize to slugs
+    origin_slug = req.origin_city.strip().lower().replace(" ", "-")
+    destination_slug = req.destination.strip().lower().replace(" ", "-")
 
     # Try database first
     try:
-        dest_response = db.table("destinations").select("id").eq(
-            "slug", destination_slug
-        ).execute()
+        res = db.table("transport_options").select("*")\
+            .eq("origin_slug", origin_slug)\
+            .eq("destination_slug", destination_slug)\
+            .eq("mode", "flight")\
+            .order("price_min_inr", desc=False)\
+            .execute()
 
-        if dest_response.data:
-            destination_id = dest_response.data[0]["id"]
+        if res.data:
+            logger.info(f"Flights scraped options hit for {origin_slug} -> {destination_slug}")
+            airlines = list({r.get("operator") for r in res.data if r.get("operator")})
+            routes = []
+            for r in res.data[:3]:
+                routes.append({
+                    "airline":        r.get("operator") or "N/A",
+                    "flight_number":  "N/A",
+                    "departure_time": r.get("departure_times")[0] if r.get("departure_times") else "N/A",
+                    "arrival_time":   "N/A",
+                    "dep_airport":    req.origin_city.strip()[:3].upper(),
+                    "arr_airport":    req.destination.strip()[:3].upper(),
+                    "price_min_inr":  r.get("price_min_inr"),
+                    "price_max_inr":  r.get("price_max_inr"),
+                    "duration_minutes": r.get("duration_minutes"),
+                })
+            
+            booking_link = res.data[0].get("booking_url") or f"https://www.google.com/flights?hl=en#flt={req.origin_city.strip()[:3].upper()}.{req.destination.strip()[:3].upper()}.{req.start_date};c:INR;e:1;px:0;tt:o"
 
-            # Get the actual airport code from destination
-            dest_detail = db.table("destinations").select(
-                "nearest_airport_code"
-            ).eq("id", destination_id).execute()
-
-            if dest_detail.data and dest_detail.data[0].get("nearest_airport_code"):
-                dest_iata = dest_detail.data[0]["nearest_airport_code"]
-
-            # Query flights table
-            flights_response = db.table("flights").select("*").eq(
-                "origin_iata", origin_iata
-            ).eq("destination_iata", dest_iata).gte(
-                "departure_date", req.start_date
-            ).order("price_inr").limit(5).execute()
-
-            if flights_response.data:
-                logger.info(f"Flights cache hit for {origin_iata}-{dest_iata}")
-                return {
-                    "flights": {
-                        "route": f"{origin_iata} → {dest_iata}",
-                        "cached_flights": flights_response.data,
-                        "note": "Prices from database cache",
-                    },
-                    "data_freshness": flights_response.data[0].get("scraped_at") if flights_response.data else None,
-                }
+            return {
+                "flights": {
+                    "route":          f"{req.origin_city} → {req.destination}",
+                    "airlines":       airlines,
+                    "sample_flights":  routes,
+                    "booking_link":   booking_link,
+                    "note":           "Prices from scraped database",
+                },
+                "data_freshness": res.data[0].get("scraped_at") if res.data else None,
+            }
     except Exception as e:
         logger.warning(f"Flights DB check failed: {e}")
 
@@ -65,4 +68,4 @@ async def flight_node(state: dict) -> dict:
         return {"flights": result.data}
     except Exception as e:
         logger.error(f"Flight node failed: {e}")
-        return {"flights": {"error": str(e)}}
+        return {"flights": {"error": str(e)}}

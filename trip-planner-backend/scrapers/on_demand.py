@@ -138,29 +138,51 @@ class OnDemandScraper:
 
     async def _background_scrape(self, destination: dict):
         """
-        Background job: scrape via SmartScraper, save to DB, update quality score.
+        Background job: scrape via pipeline (respects semaphore) or direct
+        SmartScraper if the destination isn't active in DB yet.
+
         Fire-and-forget — caller does not await this.
         """
         from core.supabase_client import db
 
         dest_name = destination.get("name", "unknown")
-        dest_id = destination.get("id")
+        dest_slug = destination.get("slug", "")
+        dest_id   = destination.get("id")
         logger.info(f"OnDemandScraper: Starting background scrape for {dest_name}")
 
         try:
+            # Try to route through the pipeline singleton so the global
+            # Semaphore(3) is respected and Playwright instances are capped.
+            from scrapers.scheduler import pipeline
+            try:
+                await pipeline.trigger_destination(dest_slug)
+                logger.info(
+                    f"OnDemandScraper: Handed {dest_name} to pipeline for scraping"
+                )
+                return
+            except ValueError:
+                # Destination not yet in active DB list (just inserted as
+                # is_active=False) — fall through to direct scrape below.
+                logger.info(
+                    f"OnDemandScraper: {dest_name} not in pipeline yet; "
+                    "running direct SmartScraper"
+                )
+
+            # Direct scrape (new destination, not yet in active list)
             smart = SmartScraper()
-            bundle: ScrapedBundle = await smart.scrape_destination(destination, max_sites=3)
+            bundle: ScrapedBundle = await smart.scrape_destination(
+                destination, max_sites=3
+            )
 
             # Save all records
             records_map = bundle.to_db_records()
             for table, records in records_map.items():
                 if records and dest_id:
-                    # Inject destination_id
                     for rec in records:
                         rec["destination_id"] = dest_id
                     await self._upsert_records(table, records)
 
-            # Update destination
+            # Update destination record
             score = self._calculate_quality_score(bundle)
             update_payload = {
                 "data_quality_score": score,
@@ -174,23 +196,38 @@ class OnDemandScraper:
 
             if dest_id:
                 try:
-                    db.table("destinations").update(update_payload).eq("id", dest_id).execute()
+                    loop = asyncio.get_event_loop()
+                    await loop.run_in_executor(
+                        None,
+                        lambda: db.table("destinations")
+                            .update(update_payload)
+                            .eq("id", dest_id)
+                            .execute()
+                    )
                     logger.info(
                         f"OnDemandScraper: {dest_name} quality score={score}, "
                         f"is_active={score > 30}"
                     )
                 except Exception as e:
-                    logger.error(f"OnDemandScraper: Failed to update destination record: {e}")
+                    logger.error(
+                        f"OnDemandScraper: Failed to update destination record: {e}"
+                    )
 
             # Rebuild FAISS indexes
             try:
                 from rag.faiss_index import rebuild_indexes_from_db
                 rebuild_indexes_from_db()
             except Exception as e:
-                logger.warning(f"OnDemandScraper: FAISS rebuild failed (non-fatal): {e}")
+                logger.warning(
+                    f"OnDemandScraper: FAISS rebuild failed (non-fatal): {e}"
+                )
 
         except Exception as e:
-            logger.error(f"OnDemandScraper: Background scrape failed for {dest_name}: {e}")
+            logger.error(
+                f"OnDemandScraper: Background scrape failed for {dest_name}: {e}",
+                exc_info=True,
+            )
+
 
     # ------------------------------------------------------------------
     # Helpers
@@ -237,7 +274,11 @@ class OnDemandScraper:
 
         from core.supabase_client import db
         try:
-            db.table(table).upsert(records, on_conflict=",".join(cols)).execute()
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: db.table(table).upsert(records, on_conflict=",".join(cols)).execute()
+            )
             logger.info(f"OnDemandScraper: Upserted {len(records)} records to {table}")
         except Exception as e:
             logger.error(f"OnDemandScraper: Upsert to {table} failed: {e}")

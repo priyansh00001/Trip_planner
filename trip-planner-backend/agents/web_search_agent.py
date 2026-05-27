@@ -10,13 +10,10 @@ The combined text is fed to the LLM to extract structured facts
 """
 
 from agents.base_agent import BaseAgent
-from core.config import settings
-from langchain_groq import ChatGroq
+from core.llm_client import llm_client
 import httpx, json, logging
 
 logger = logging.getLogger(__name__)
-
-llm = ChatGroq(api_key=settings.GROQ_API_KEY, model="llama-3.3-70b-versatile", max_tokens=1500)
 
 
 class WebSearchAgent(BaseAgent):
@@ -99,14 +96,13 @@ Return a JSON object with exactly these keys:
 }}
 """
         try:
-            response = await llm.ainvoke(prompt)
-            # Strip markdown fences if present
-            content = response.content.strip()
-            if content.startswith("```"):
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:]
-            extracted = json.loads(content.strip())
+            extracted = await llm_client.extract_json(
+                prompt=prompt,
+                system="Extract structured travel facts. Return only valid JSON.",
+                max_tokens=4000,
+            )
+            if not extracted:
+                extracted = {}
         except Exception as e:
             logger.warning(f"WebSearchAgent: LLM extraction failed — {e}")
             extracted = {}

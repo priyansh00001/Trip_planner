@@ -32,7 +32,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // List of paths that require the user to be logged in
-  const protectedPaths = ['/dashboard', '/trip-input', '/quiz', '/generate', '/generate-stays', '/select-stay', '/trips', '/memories']
+  const protectedPaths = ['/dashboard']
   
   const isProtectedRoute = protectedPaths.some(path => 
     request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`)
@@ -42,8 +42,8 @@ export async function updateSession(request: NextRequest) {
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    // Optional: Add a returnTo query parameter so they go back to their intended page after login
-    url.searchParams.set('returnTo', request.nextUrl.pathname)
+    // Optional: Add a next query parameter so they go back to their intended page after login
+    url.searchParams.set('next', request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
 

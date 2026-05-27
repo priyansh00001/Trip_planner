@@ -7,7 +7,7 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 
 import { createClient } from "@/lib/supabase/client"
-
+import { saveAnonState } from "@/lib/anonymousState"
 const POPULAR_CITIES = [
   "Delhi", "Mumbai", "Bengaluru", "Goa", "Jaipur", "Agra", "Kochi", 
   "Srinagar", "Manali", "Shimla", "Udaipur", "Varanasi", "Kolkata", 
@@ -132,10 +132,11 @@ export default function TripInputPage() {
       if (insertError) { setError(insertError.message); setIsSubmitting(false); return }
       router.push(`/select-transport/${data.id}`)
     } else {
-      localStorage.setItem("anonymous_trip", JSON.stringify({
+      saveAnonState({
         originCity, destination, duration_days: days, budget_range: String(budget),
-        preference: accommodation, start_date: journeyDate
-      }))
+        preference: accommodation, start_date: journeyDate,
+        lastCompletedStep: 'trip-input'
+      })
       router.push(`/select-transport/anonymous`)
     }
   }

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClient } from "@/lib/supabase/client"
 import { TripDebriefModal } from "@/components/TripDebriefModal"
+import { getAnonState, clearAnonState } from "@/lib/anonymousState"
 
 // Destination-specific hero images for trip cards
 const cardImages: Record<string, string> = {
@@ -83,35 +84,56 @@ export default function DashboardPage() {
 
       if (user) {
         // Intercept and migrate any pending guest/anonymous trip planning data
-        const anonTripStr = localStorage.getItem("anonymous_trip")
-        if (anonTripStr) {
+        const anonTrip = getAnonState()
+        if (anonTrip) {
           try {
-            const anonTrip = JSON.parse(anonTripStr)
-            
-            // Only migrate if we have selected stays and selected places
             const { data: newTrip, error: insertError } = await supabase
               .from("trips")
               .insert({
                 user_id: user.id,
                 destination: anonTrip.destination,
                 duration_days: anonTrip.duration_days,
-                budget_range: String(anonTrip.budget_range),
+                budget_range: String(anonTrip.budget_range || anonTrip.budget),
                 preference: anonTrip.preference || "No Preference",
-                status: "generating_itinerary",
-                start_date: anonTrip.start_date || new Date().toISOString().split("T")[0],
+                status: anonTrip.status || "selecting_transport",
+                start_date: anonTrip.start_date || anonTrip.startDate || new Date().toISOString().split("T")[0],
+                origin_city: anonTrip.originCity || anonTrip.origin_city || anonTrip.source,
+                selected_transport: anonTrip.selected_transport || null,
+                transport_cost_inr: anonTrip.transport_cost_inr || null,
+                remaining_budget_inr: anonTrip.remaining_budget_inr || null,
                 plan_data: anonTrip.plan_data || {},
               })
               .select()
               .single()
 
-            if (!insertError && newTrip) {
-              localStorage.removeItem("anonymous_trip")
-              router.push(`/generate/${newTrip.id}`)
+            if (insertError) {
+              console.error("Failed to migrate anonymous trip:", insertError)
+            } else if (newTrip) {
+              const postLoginNext = new URLSearchParams(window.location.search).get("postLoginNext")
+              
+              if (anonTrip.lastCompletedStep === 'trip-input') {
+                router.push(`/select-transport/${newTrip.id}`)
+              } else if (anonTrip.lastCompletedStep === 'select-transport') {
+                router.push(`/generate-stays/${newTrip.id}`)
+              } else if (anonTrip.lastCompletedStep === 'generate-stays') {
+                router.push(`/select-stay/${newTrip.id}`)
+              } else if (anonTrip.lastCompletedStep === 'select-stay') {
+                router.push(`/pick-places/${newTrip.id}`)
+              } else if (anonTrip.lastCompletedStep === 'pick-places') {
+                // finished places, generate itinerary normally redirects to generating or dashboard
+                router.push(`/dashboard`) 
+              } else if (postLoginNext) {
+                router.push(postLoginNext)
+              } else {
+                router.push(`/dashboard`)
+              }
+              clearAnonState()
               return
             }
           } catch (e) {
             console.error("Failed to migrate anonymous trip:", e)
           }
+          clearAnonState()
         }
 
         const name = user.user_metadata?.full_name || user.email?.split('@')[0] || "Traveler"

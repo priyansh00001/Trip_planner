@@ -168,11 +168,31 @@ class BaseScraper(ABC):
             for record in records:
                 record["scraped_at"] = datetime.now(timezone.utc).isoformat()
 
-            response = db.table(table).upsert(
-                records,
-                on_conflict=",".join(conflict_cols),
-                returning="representation"
-            ).execute()
+            # Deduplicate by conflict_cols to avoid PG unique conflict in single query (error 21000)
+            if conflict_cols:
+                deduped = {}
+                for rec in records:
+                    key = tuple(rec.get(col) for col in conflict_cols)
+                    if key not in deduped:
+                        deduped[key] = rec
+                    else:
+                        # If price_min_inr exists, keep the cheaper option
+                        if "price_min_inr" in rec and "price_min_inr" in deduped[key]:
+                            if rec["price_min_inr"] < deduped[key]["price_min_inr"]:
+                                deduped[key] = rec
+                        else:
+                            deduped[key] = rec
+                records = list(deduped.values())
+
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: db.table(table).upsert(
+                    records,
+                    on_conflict=",".join(conflict_cols),
+                    returning="representation"
+                ).execute()
+            )
 
             return {
                 "inserted": len(records),

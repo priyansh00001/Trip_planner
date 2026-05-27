@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yatra Scraper Monitor</title>
+  <meta name="description" content="Real-time scraper monitoring dashboard for Yatra Trip Planner" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              DEFAULT: '#f59e0b',
+              dark:    '#d97706',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    html { scroll-behavior: smooth; }
+    body { background: #0f1117; color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; }
+
+    /* Feed rows */
+    .feed-row { animation: fadeIn .25s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+
+    /* Quality bar */
+    .quality-bar-fill { transition: width .6s ease; }
+
+    /* Connection dot pulse */
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+    .pulse { animation: pulse 1.8s infinite; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1e2130; }
+    ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 3px; }
+
+    /* Card */
+    .card { background: #1a1d2e; border: 1px solid #2d3148; border-radius: 12px; }
+
+    /* Token bar */
+    #groq-bar { transition: width .5s ease; }
+  </style>
+</head>
+<body class="dark min-h-screen p-4">
+
+<!-- ================================================================
+  SECTION A — TOP BAR
+================================================================ -->
+<header class="card px-5 py-3 flex flex-wrap items-center gap-4 mb-5">
+
+  <div class="flex items-center gap-2 mr-auto">
+    <span class="text-brand text-xl font-bold tracking-tight">⚡</span>
+    <span class="text-slate-300 text-lg font-semibold">Scraper Monitor</span>
+  </div>
+
+  <!-- LM Studio Status -->
+  <div class="flex items-center gap-2 text-xs">
+    <span id="lm-dot" class="h-2.5 w-2.5 rounded-full bg-slate-500 pulse"></span>
+    <span class="text-slate-400">LM Studio</span>
+  </div>
+
+  <!-- Pipeline status -->
+  <div class="flex items-center gap-2 text-xs">
+    <span id="pipeline-dot" class="h-2.5 w-2.5 rounded-full bg-slate-500"></span>
+    <span id="pipeline-label" class="text-slate-400 font-medium uppercase tracking-widest">—</span>
+  </div>
+
+  <!-- Last cycle -->
+  <div class="text-xs text-slate-500">
+    Last cycle: <span id="last-cycle" class="text-slate-300">—</span>
+  </div>
+
+  <!-- Groq token bar -->
+  <div class="flex items-center gap-2 text-xs">
+    <span class="text-slate-400">Groq</span>
+    <div class="w-32 h-2 bg-slate-700 rounded-full overflow-hidden">
+      <div id="groq-bar" class="h-full rounded-full bg-emerald-500 w-0"></div>
+    </div>
+    <span id="groq-label" class="text-slate-300 tabular-nums">—</span>
+  </div>
+
+  <!-- SSE connection -->
+  <div class="flex items-center gap-2 text-xs">
+    <span id="sse-dot" class="h-2 w-2 rounded-full bg-slate-600 pulse"></span>
+    <span id="sse-label" class="text-slate-500">connecting…</span>
+  </div>
+
+  <!-- Auto-refresh toggle -->
+  <label class="flex items-center gap-2 text-xs cursor-pointer select-none">
+    <input type="checkbox" id="auto-refresh" checked class="accent-amber-400" />
+    <span class="text-slate-400">Auto-refresh 15s</span>
+  </label>
+
+</header>
+
+
+<!-- ================================================================
+  SECTION B — STAT CARDS
+================================================================ -->
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+  <div class="card px-4 py-3">
+    <div class="text-xs text-slate-500 uppercase tracking-widest mb-1">Destinations</div>
+    <div id="stat-destinations" class="text-2xl font-bold text-brand">—</div>
+  </div>
+  <div class="card px-4 py-3">
+    <div class="text-xs text-slate-500 uppercase tracking-widest mb-1">Places</div>
+    <div id="stat-places" class="text-2xl font-bold text-slate-200">—</div>
+  </div>
+  <div class="card px-4 py-3">
+    <div class="text-xs text-slate-500 uppercase tracking-widest mb-1">Hotels</div>
+    <div id="stat-hotels" class="text-2xl font-bold text-slate-200">—</div>
+  </div>
+  <div class="card px-4 py-3">
+    <div class="text-xs text-slate-500 uppercase tracking-widest mb-1">Transport</div>
+    <div id="stat-transport" class="text-2xl font-bold text-slate-200">—</div>
+  </div>
+  <div class="card px-4 py-3">
+    <div class="text-xs text-slate-500 uppercase tracking-widest mb-1">LLM Calls</div>
+    <div id="stat-llm" class="text-2xl font-bold text-slate-200">—</div>
+  </div>
+  <div class="card px-4 py-3">
+    <div class="text-xs text-slate-500 uppercase tracking-widest mb-1">Cache Hits</div>
+    <div id="stat-cache" class="text-2xl font-bold text-cyan-400">—</div>
+  </div>
+</div>
+
+
+<!-- ================================================================
+  SECTION C — TWO COLUMNS
+================================================================ -->
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-5">
+
+  <!-- LEFT — Destination Quality Table -->
+  <div class="card p-4 overflow-auto max-h-[520px]">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-widest">
+        Destination Quality
+      </h2>
+      <span id="dest-count" class="text-xs text-slate-500">— destinations</span>
+    </div>
+
+    <table class="w-full text-xs">
+      <thead>
+        <tr class="text-slate-500 border-b border-slate-700 text-left">
+          <th class="pb-2 pr-3 font-normal">Destination</th>
+          <th class="pb-2 pr-3 font-normal">Quality</th>
+          <th class="pb-2 pr-3 font-normal">Last Scraped</th>
+          <th class="pb-2 pr-3 font-normal">Active</th>
+          <th class="pb-2 font-normal">Action</th>
+        </tr>
+      </thead>
+      <tbody id="quality-table-body">
+        <tr><td colspan="5" class="text-slate-600 py-4 text-center">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- RIGHT — Charts -->
+  <div class="flex flex-col gap-4">
+
+    <!-- DB Growth Line Chart -->
+    <div class="card p-4">
+      <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+        DB Growth (last 10 polls)
+      </h2>
+      <div class="h-44">
+        <canvas id="chart-growth"></canvas>
+      </div>
+    </div>
+
+    <!-- Two small charts side by side -->
+    <div class="grid grid-cols-2 gap-4">
+
+      <!-- Transport Doughnut -->
+      <div class="card p-4">
+        <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+          Transport Modes
+        </h2>
+        <div class="h-36">
+          <canvas id="chart-transport"></canvas>
+        </div>
+      </div>
+
+      <!-- LLM Usage Horizontal Bar -->
+      <div class="card p-4">
+        <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">
+          LLM Usage
+        </h2>
+        <div class="h-36">
+          <canvas id="chart-llm"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ================================================================
+  SECTION D — LIVE FEED
+================================================================ -->
+<div class="card p-4">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-widest">
+      Live Feed
+    </h2>
+    <div class="flex items-center gap-3">
+      <button id="pause-btn"
+        onclick="togglePause()"
+        class="text-xs px-3 py-1 rounded-md border border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 transition">
+        ⏸ Pause
+      </button>
+      <button
+        onclick="clearFeed()"
+        class="text-xs px-3 py-1 rounded-md border border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 transition">
+        🗑 Clear
+      </button>
+    </div>
+  </div>
+
+  <div id="feed" class="font-mono text-xs space-y-0.5 max-h-64 overflow-y-auto">
+    <div class="text-slate-600 text-center py-6">Waiting for events…</div>
+  </div>
+</div>
+
+
+<!-- ================================================================
+  JAVASCRIPT
+================================================================ -->
+<script>
+const API = 'http://localhost:8000/api'
+
+// ---- State ----
+let summaryHistory = []   // [{ts, places, hotels, transport}]
+let feedPaused    = false
+let eventSource   = null
+let liveStats     = { llm: 0, cache: 0, saved: 0 }
+
+// ---- Chart instances ----
+let growthChart, transportChart, llmChart
+
+// ============================
+// SSE — Live event stream
+// ============================
+
+function connectSSE() {
+  if (eventSource) { eventSource.close() }
+  eventSource = new EventSource(`${API}/scraper/events/stream`)
+
+  eventSource.onopen = () => updateSSEStatus(true)
+  eventSource.onerror = () => {
+    updateSSEStatus(false)
+    setTimeout(connectSSE, 5000)
+  }
+  eventSource.onmessage = (e) => {
+    try {
+      const evt = JSON.parse(e.data)
+      if (evt.type === 'ping') return
+      if (!feedPaused) prependFeedRow(evt)
+      updateStatFromEvent(evt)
+    } catch (_) {}
+  }
+}
+
+function updateSSEStatus(connected) {
+  const dot   = document.getElementById('sse-dot')
+  const label = document.getElementById('sse-label')
+  if (connected) {
+    dot.className   = 'h-2 w-2 rounded-full bg-emerald-500'
+    label.textContent = 'Live'
+    label.className   = 'text-emerald-400 text-xs'
+  } else {
+    dot.className   = 'h-2 w-2 rounded-full bg-red-500 pulse'
+    label.textContent = 'Disconnected — reconnecting…'
+    label.className   = 'text-red-400 text-xs'
+  }
+}
+
+// ============================
+// Feed rows
+// ============================
+
+const ROW_COLORS = {
+  dest_start:       'bg-blue-950/60 text-blue-300',
+  dest_end:         'bg-blue-900/40 text-blue-200',
+  records_saved:    'bg-emerald-950/60 text-emerald-300',
+  records_rejected: 'bg-yellow-950/60 text-yellow-300',
+  dest_failed:      'bg-red-950/70 text-red-300 font-semibold',
+  db_error:         'bg-red-950/70 text-red-300 font-semibold',
+  llm_rate_limit:   'bg-red-900/70 text-red-200 font-bold',
+  cache_hit:        'bg-slate-800/50 text-slate-500 italic',
+  transport_done:   'bg-teal-950/50 text-teal-300',
+  transport_failed: 'bg-orange-950/50 text-orange-300',
+}
+
+const ICONS = {
+  cycle_start:     '🔄', cycle_end:       '✅',
+  dest_start:      '📍', dest_end:        '✅', dest_failed:     '❌',
+  site_start:      '🌐', site_done:       '📄', site_failed:     '⚠️',
+  records_saved:   '💾', records_rejected:'🚫',
+  transport_start: '🚆', transport_done:  '✅', transport_failed:'❌',
+  llm_call:        '🤖', llm_success:     '✅', llm_failed:      '❌', llm_rate_limit: '⛔',
+  db_write:        '💽', db_error:        '🔥',
+  validator_pass:  '✓',  validator_fail:  '✗',
+  cache_hit:       '⚡',
+}
+
+function prependFeedRow(evt) {
+  const feed  = document.getElementById('feed')
+
+  // Remove placeholder
+  const placeholder = feed.querySelector('.text-slate-600')
+  if (placeholder) placeholder.remove()
+
+  // Trim feed to 200 rows
+  while (feed.children.length >= 200) {
+    feed.removeChild(feed.lastChild)
+  }
+
+  const color = ROW_COLORS[evt.type] || 'text-slate-400'
+  const icon  = ICONS[evt.type] || '•'
+  const time  = (evt.ts || '').substring(11, 19)
+
+  const parts = [
+    `<span class="text-slate-600">${time}</span>`,
+    icon,
+    `<span class="font-semibold">${evt.type}</span>`,
+  ]
+  if (evt.destination) parts.push(`<span class="text-slate-300">${evt.destination}</span>`)
+  if (evt.site)        parts.push(`<span class="text-slate-500">[${evt.site}]</span>`)
+  if (evt.mode)        parts.push(`<span class="text-slate-500">${evt.mode}</span>`)
+  if (evt.count)       parts.push(`<span>×${evt.count}</span>`)
+  if (evt.detail)      parts.push(`<span class="opacity-70">— ${evt.detail}</span>`)
+
+  const row = document.createElement('div')
+  row.className = `feed-row flex gap-2 items-start px-2 py-0.5 rounded ${color}`
+  row.innerHTML = parts.join(' ')
+
+  feed.insertBefore(row, feed.firstChild)
+}
+
+function updateStatFromEvent(evt) {
+  if (evt.type === 'llm_call')       { liveStats.llm++;    document.getElementById('stat-llm').textContent = liveStats.llm }
+  if (evt.type === 'cache_hit')      { liveStats.cache++;  document.getElementById('stat-cache').textContent = liveStats.cache }
+  if (evt.type === 'records_saved')  { liveStats.saved += evt.count || 0 }
+}
+
+// ============================
+// Summary polling
+// ============================
+
+async function fetchSummary() {
+  try {
+    const data = await fetch(`${API}/scraper/summary`).then(r => r.json())
+
+    // History for growth chart
+    summaryHistory.push({
+      ts:        data.generated_at,
+      places:    data.db_counts?.places    ?? 0,
+      hotels:    data.db_counts?.hotels    ?? 0,
+      transport: data.db_counts?.transport_options ?? 0,
+    })
+    if (summaryHistory.length > 10) summaryHistory.shift()
+
+    updateStatCards(data)
+    updateQualityTable(data.dest_quality || [])
+    updateCharts(data)
+    updateLLMBar(data.llm)
+    updatePipelineStatus(data.pipeline)
+    updateLastCycle(data.event_stats)
+
+    // Sync live LLM count from server stats
+    const evtLlm = data.event_stats?.total_llm_calls ?? 0
+    if (evtLlm > liveStats.llm) {
+      liveStats.llm = evtLlm
+      document.getElementById('stat-llm').textContent = evtLlm
+    }
+    const evtCache = data.event_stats?.total_cache_hits ?? 0
+    if (evtCache > liveStats.cache) {
+      liveStats.cache = evtCache
+      document.getElementById('stat-cache').textContent = evtCache
+    }
+
+  } catch (err) {
+    console.warn('fetchSummary error:', err)
+  }
+}
+
+// ============================
+// Stat cards
+// ============================
+
+function updateStatCards(data) {
+  const c = data.db_counts || {}
+  const active = (data.dest_quality || []).filter(d => d.is_active).length
+  const total  = (data.dest_quality || []).length
+
+  document.getElementById('stat-destinations').textContent =
+    total ? `${active}/${total}` : (c.destinations ?? '—')
+  document.getElementById('stat-places').textContent    = c.places    ?? '—'
+  document.getElementById('stat-hotels').textContent    = c.hotels    ?? '—'
+  document.getElementById('stat-transport').textContent = c.transport_options ?? '—'
+}
+
+// ============================
+// Quality Table
+// ============================
+
+function updateQualityTable(dests) {
+  const tbody = document.getElementById('quality-table-body')
+  document.getElementById('dest-count').textContent = `${dests.length} destinations`
+
+  if (!dests.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-slate-600 py-4 text-center">No data</td></tr>'
+    return
+  }
+
+  tbody.innerHTML = dests.map(d => {
+    const score = d.data_quality_score ?? 0
+    let barColor, label
+    if      (score >= 86) { barColor = 'bg-blue-500';    label = 'Complete' }
+    else if (score >= 61) { barColor = 'bg-emerald-500'; label = 'Good' }
+    else if (score >= 31) { barColor = 'bg-yellow-400';  label = 'Partial' }
+    else                  { barColor = 'bg-red-500';     label = 'Empty' }
+
+    const scraped = d.scraped_at
+      ? new Date(d.scraped_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })
+      : '—'
+
+    const active = d.is_active
+      ? '<span class="text-emerald-400 font-semibold">●</span>'
+      : '<span class="text-slate-600">○</span>'
+
+    return `
+      <tr class="border-b border-slate-800 hover:bg-slate-800/30 transition">
+        <td class="py-2 pr-3 text-slate-200 font-medium">${d.name || d.slug}</td>
+        <td class="py-2 pr-3">
+          <div class="flex items-center gap-2">
+            <div class="w-20 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+              <div class="quality-bar-fill h-full ${barColor} rounded-full" style="width:${score}%"></div>
+            </div>
+            <span class="text-slate-400">${score}</span>
+            <span class="text-slate-500 text-[10px]">${label}</span>
+          </div>
+        </td>
+        <td class="py-2 pr-3 text-slate-500">${scraped}</td>
+        <td class="py-2 pr-3">${active}</td>
+        <td class="py-2">
+          <button id="trigger-${d.slug}"
+            onclick="triggerScrape('${d.slug}')"
+            class="text-[10px] px-2.5 py-1 rounded bg-amber-700/30 text-amber-300 border border-amber-700/50 hover:bg-amber-700/50 transition">
+            Trigger
+          </button>
+        </td>
+      </tr>`
+  }).join('')
+}
+
+// ============================
+// Charts
+// ============================
+
+function initCharts() {
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } },
+  }
+
+  // DB Growth line chart
+  growthChart = new Chart(document.getElementById('chart-growth'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Places',    data: [], borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.15)', tension: .4, fill: true, pointRadius: 3 },
+        { label: 'Hotels',    data: [], borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,.1)',  tension: .4, fill: true, pointRadius: 3 },
+        { label: 'Transport', data: [], borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,.1)',   tension: .4, fill: true, pointRadius: 3 },
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      scales: {
+        x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: '#1e293b' } },
+        y: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: '#1e293b' } },
+      }
+    }
+  })
+
+  // Transport doughnut
+  transportChart = new Chart(document.getElementById('chart-transport'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Flight', 'Train', 'Bus', 'Cab'],
+      datasets: [{ data: [0, 0, 0, 0], backgroundColor: ['#3b82f6','#f59e0b','#34d399','#f472b6'], borderWidth: 0 }]
+    },
+    options: {
+      ...chartDefaults,
+      cutout: '68%',
+      plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 9 }, padding: 8 } } }
+    }
+  })
+
+  // LLM usage horizontal bar
+  llmChart = new Chart(document.getElementById('chart-llm'), {
+    type: 'bar',
+    data: {
+      labels: ['Groq used', 'Groq limit', 'LMStudio', 'Cache hits'],
+      datasets: [{
+        data: [0, 0, 0, 0],
+        backgroundColor: ['#f59e0b', '#374151', '#a78bfa', '#34d399'],
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      ...chartDefaults,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: '#1e293b' } },
+        y: { ticks: { color: '#94a3b8', font: { size: 9 } }, grid: { display: false } },
+      }
+    }
+  })
+}
+
+function updateCharts(data) {
+  // Growth chart
+  const labels = summaryHistory.map(h => h.ts.substring(11, 19))
+  growthChart.data.labels = labels
+  growthChart.data.datasets[0].data = summaryHistory.map(h => h.places)
+  growthChart.data.datasets[1].data = summaryHistory.map(h => h.hotels)
+  growthChart.data.datasets[2].data = summaryHistory.map(h => h.transport)
+  growthChart.update('none')
+
+  // Transport doughnut
+  const modes = data.transport_modes || {}
+  transportChart.data.datasets[0].data = [
+    modes.flight ?? 0, modes.train ?? 0, modes.bus ?? 0, modes.cab ?? 0
+  ]
+  transportChart.update('none')
+
+  // LLM bar
+  const llm   = data.llm || {}
+  const cache = data.event_stats || {}
+  const groqBudget  = llm.groq_budget || {}
+  const groqUsed    = groqBudget.tokens_used  || 0
+  const groqLimit   = groqBudget.daily_limit  || 80000
+
+  llmChart.data.datasets[0].data = [groqUsed, groqLimit, liveStats.llm, cache.total_cache_hits ?? 0]
+
+  // Color groq bar red when > 80%
+  const pct = groqLimit > 0 ? groqUsed / groqLimit : 0
+  llmChart.data.datasets[0].backgroundColor = [
+    pct > .8 ? '#ef4444' : '#f59e0b',
+    '#374151',
+    '#a78bfa',
+    '#34d399',
+  ]
+  llmChart.update('none')
+}
+
+// ============================
+// LLM bar in header
+// ============================
+
+function updateLLMBar(llm) {
+  if (!llm?.groq_budget) return
+  const { tokens_used, daily_limit } = llm.groq_budget
+  const pct = daily_limit > 0 ? (tokens_used / daily_limit) : 0
+  const bar = document.getElementById('groq-bar')
+  bar.style.width = `${Math.min(pct * 100, 100)}%`
+  bar.className = `h-full rounded-full ${pct > .8 ? 'bg-red-500' : pct > .5 ? 'bg-yellow-400' : 'bg-emerald-500'}`
+  document.getElementById('groq-label').textContent =
+    `${(tokens_used/1000).toFixed(0)}k / ${(daily_limit/1000).toFixed(0)}k`
+
+  // LM Studio dot
+  const lmUp = llm.lmstudio_up
+  const dot  = document.getElementById('lm-dot')
+  if (lmUp === true)  { dot.className = 'h-2.5 w-2.5 rounded-full bg-emerald-500' }
+  else if (lmUp === false) { dot.className = 'h-2.5 w-2.5 rounded-full bg-red-500' }
+  else                { dot.className = 'h-2.5 w-2.5 rounded-full bg-slate-500 pulse' }
+}
+
+// ============================
+// Pipeline status
+// ============================
+
+function updatePipelineStatus(pipeline) {
+  if (!pipeline) return
+  const dot   = document.getElementById('pipeline-dot')
+  const label = document.getElementById('pipeline-label')
+  const running = pipeline.running
+  dot.className   = `h-2.5 w-2.5 rounded-full ${running ? 'bg-emerald-500' : 'bg-red-500'}`
+  label.textContent = running ? 'Running' : 'Stopped'
+  label.className   = `text-xs font-medium uppercase tracking-widest ${running ? 'text-emerald-400' : 'text-red-400'}`
+}
+
+// ============================
+// Last cycle
+// ============================
+
+function updateLastCycle(stats) {
+  if (!stats?.last_cycle_end) return
+  const diff = Math.round((Date.now() - new Date(stats.last_cycle_end).getTime()) / 60000)
+  document.getElementById('last-cycle').textContent = diff < 2 ? 'just now' : `${diff}m ago`
+}
+
+// ============================
+// Trigger scrape
+// ============================
+
+async function triggerScrape(slug) {
+  const btn = document.getElementById(`trigger-${slug}`)
+  if (!btn) return
+  btn.disabled     = true
+  btn.textContent  = '⏳ Triggered'
+  btn.className    = btn.className.replace('amber', 'slate')
+  try {
+    await fetch(`${API}/scraper/trigger/${slug}`, {
+      method:  'POST',
+      headers: { 'X-Admin-Secret': 'yatra-admin-2025' }
+    })
+  } catch (_) {}
+  setTimeout(() => {
+    btn.disabled    = false
+    btn.textContent = 'Trigger'
+    btn.className   = btn.className.replace('slate', 'amber')
+  }, 30000)
+}
+
+// ============================
+// Feed controls
+// ============================
+
+function togglePause() {
+  feedPaused = !feedPaused
+  const btn = document.getElementById('pause-btn')
+  btn.textContent = feedPaused ? '▶ Resume' : '⏸ Pause'
+  btn.className   = feedPaused
+    ? btn.className.replace('slate-400', 'amber-300').replace('slate-600', 'amber-600')
+    : btn.className.replace('amber-300', 'slate-400').replace('amber-600', 'slate-600')
+}
+
+function clearFeed() {
+  document.getElementById('feed').innerHTML =
+    '<div class="text-slate-600 text-center py-6">Feed cleared</div>'
+}
+
+// ============================
+// Bootstrap
+// ============================
+
+initCharts()
+connectSSE()
+fetchSummary()
+
+let pollInterval = setInterval(fetchSummary, 15000)
+
+document.getElementById('auto-refresh').addEventListener('change', (e) => {
+  if (e.target.checked) {
+    pollInterval = setInterval(fetchSummary, 15000)
+  } else {
+    clearInterval(pollInterval)
+  }
+})
+</script>
+
+</body>
+</html>

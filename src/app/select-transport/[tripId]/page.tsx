@@ -8,8 +8,11 @@ import {
   Check, ArrowRight, ArrowLeft, RefreshCw
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { getAnonState, saveAnonState } from "@/lib/anonymousState"
 import { TripProgressBar } from "@/components/TripProgressBar"
-import Link from "next/link"
+
+
+type DataSource = "estimated" | "live" | "calculated"
 
 type TransportOption = {
   mode: string
@@ -24,16 +27,21 @@ type TransportOption = {
   scraped_at?: string
 }
 
+type TransportOptions = {
+  flight: TransportOption[]
+  train: TransportOption[]
+  bus: TransportOption[]
+  cab: TransportOption[]
+}
+
 type TransportData = {
   origin: string
   destination: string
   scraping_in_progress: boolean
-  options: {
-    flight: TransportOption[]
-    train: TransportOption[]
-    bus: TransportOption[]
-    cab: TransportOption[]
-  }
+  options: TransportOptions
+  data_source?: string
+  data_freshness?: string
+  message?: string
 }
 
 const tabItems = [
@@ -50,8 +58,9 @@ export default function SelectTransportPage() {
   const [trip, setTrip] = useState<any>(null)
   const [transportData, setTransportData] = useState<TransportData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [polling, setPolling] = useState(false)
+  const [loadingLive, setLoadingLive] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dataSource, setDataSource] = useState<Record<string, DataSource>>({})
   
   const [activeTab, setActiveTab] = useState<string>("flight")
   const [selectedOption, setSelectedOption] = useState<TransportOption | null>(null)
@@ -64,11 +73,11 @@ export default function SelectTransportPage() {
 
       try {
         if (params.tripId === "anonymous") {
-          const stored = localStorage.getItem("anonymous_trip")
+          const stored = getAnonState()
           if (!stored) { router.push("/trip-input"); return }
-          const data = JSON.parse(stored)
+          const data = stored
           setTrip(data)
-          fetchTransport(data.originCity || "Delhi", data.destination)
+          loadTransport(data.originCity || data.origin_city || "Delhi", data.destination || "")
         } else {
           const supabase = createClient()
           const { data, error } = await supabase
@@ -80,7 +89,7 @@ export default function SelectTransportPage() {
             return
           }
           setTrip(data)
-          fetchTransport(data.origin_city || "Delhi", data.destination)
+          loadTransport(data.origin_city || "Delhi", data.destination)
         }
       } catch (err: any) {
         setError(err.message)
@@ -90,26 +99,39 @@ export default function SelectTransportPage() {
     loadTrip()
   }, [params, router])
 
-  // 2. Fetch Transport options from API
-  async function fetchTransport(origin: string, destination: string) {
+  // FIX 4 — Two-phase transport load
+  async function loadTransport(origin: string, destination: string) {
     try {
-      const res = await fetch(`/api/transport?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`)
+      const isAnonymous = params?.tripId === "anonymous"
+      // Phase 1: immediate load — seed/DB data comes back fast
+      const res = await fetch(
+        `/api/transport?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&authenticated=${!isAnonymous}`
+      )
       if (!res.ok) throw new Error("Failed to fetch transport options")
       const data: TransportData = await res.json()
-      
+
       setTransportData(data)
       setLoading(false)
 
-      // Auto select flight tab if it has options, otherwise try others
+      // Mark initial data source for all returned modes
+      const initialSource: Record<string, DataSource> = {}
+      if (data.data_source === "seed_data") {
+        for (const mode of ["flight", "train", "bus", "cab"] as const) {
+          if (data.options[mode]?.length > 0) initialSource[mode] = "estimated"
+        }
+      }
+      setDataSource(initialSource)
+
+      // Auto-select first tab that has options
       const modes = ["flight", "train", "bus", "cab"] as const
       const activeMode = modes.find(m => data.options[m]?.length > 0) || "flight"
       setActiveTab(activeMode)
 
-      // Handle active scrape background polling
-      if (data.scraping_in_progress) {
-        setPolling(true)
-      } else {
-        setPolling(false)
+      // Phase 2: if scraping in progress OR no options, open SSE stream
+      if (data.scraping_in_progress || !hasAnyOptions(data.options)) {
+        setLoadingLive(true)
+        await streamLiveTransport(origin, destination)
+        setLoadingLive(false)
       }
     } catch (err: any) {
       setError(err.message)
@@ -117,31 +139,137 @@ export default function SelectTransportPage() {
     }
   }
 
-  // Polling logic when scraping is in progress
-  useEffect(() => {
-    if (!polling || !trip) return
+  function hasAnyOptions(opts: TransportOptions): boolean {
+    return Object.values(opts).some(arr => arr.length > 0)
+  }
 
-    const interval = setInterval(async () => {
-      try {
-        const origin = trip.originCity || trip.origin_city || "Delhi"
-        const res = await fetch(`/api/transport?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(trip.destination)}`)
-        if (res.ok) {
-          const data: TransportData = await res.json()
-          setTransportData(data)
-          if (!data.scraping_in_progress) {
-            setPolling(false)
+  async function streamLiveTransport(origin: string, destination: string) {
+    return new Promise<void>((resolve) => {
+      // Hard 10s timeout — show whatever arrived after that
+      const timeout = setTimeout(resolve, 10000)
+
+      fetch("/api/transport-proxy/scrape-now", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origin, destination }),
+      })
+        .then(async (res) => {
+          const reader  = res.body!.getReader()
+          const decoder = new TextDecoder()
+          let   buffer  = ""
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split("\n")
+            buffer = lines.pop() || ""
+
+            for (const line of lines) {
+              if (!line.startsWith("data:")) continue
+              try {
+                const event = JSON.parse(line.slice(5).trim())
+
+                // seed_data: merge into existing options if slots empty
+                if (event.source === "estimated" && event.options) {
+                  setTransportData(prev => {
+                    if (!prev) return prev
+                    const merged = { ...prev.options }
+                    for (const mode of ["flight", "train", "bus", "cab"] as const) {
+                      if (!merged[mode]?.length && event.options[mode]?.length) {
+                        merged[mode] = event.options[mode]
+                      }
+                    }
+                    return { ...prev, options: merged }
+                  })
+                  setDataSource(prev => {
+                    const next = { ...prev }
+                    for (const mode of ["flight", "train", "bus", "cab"]) {
+                      if (event.options?.[mode]?.length && !next[mode]) {
+                        next[mode] = "estimated"
+                      }
+                    }
+                    return next
+                  })
+                }
+
+                // cab_data: inject cab options
+                if (event.event === "cab_data" && event.options?.length) {
+                  setTransportData(prev => {
+                    if (!prev) return prev
+                    return { ...prev, options: { ...prev.options, cab: event.options } }
+                  })
+                  setDataSource(prev => ({ ...prev, cab: "calculated" }))
+                }
+
+                // live_data: replace mode with live results
+                if (event.source === "live" && event.mode && event.options) {
+                  setTransportData(prev => {
+                    if (!prev) return prev
+                    return {
+                      ...prev,
+                      options: { ...prev.options, [event.mode]: event.options }
+                    }
+                  })
+                  setDataSource(prev => ({
+                    ...prev,
+                    [event.mode]: "live" as DataSource,
+                  }))
+                  // Auto-switch tab to first live mode that returned data
+                  setActiveTab(t => t === "flight" && event.mode !== "flight" ? t : event.mode)
+                }
+
+                // complete: we're done
+                if (event.message === "All transport options loaded") {
+                  clearTimeout(timeout)
+                  resolve()
+                }
+              } catch { /* skip malformed SSE line */ }
+            }
           }
-        }
-      } catch (err) {
-        console.error("Polling error:", err)
-      }
-    }, 5000)
+          clearTimeout(timeout)
+          resolve()
+        })
+        .catch(() => {
+          clearTimeout(timeout)
+          resolve()
+        })
+    })
+  }
 
-    return () => clearInterval(interval)
-  }, [polling, trip])
+  // FIX 1 — Skip transport: saves zero-cost placeholder and continues
+  const handleSkipTransport = () => {
+    const skippedTransport = {
+      mode: "skipped",
+      operator: "Not selected",
+      price_min_inr: 0,
+      price_max_inr: 0,
+      duration_minutes: null as number | null,
+      booking_url: "",
+    }
+    const totalBudget = Number(trip?.budget_range || trip?.budget || 10000)
+    saveAnonState({
+      selected_transport: skippedTransport,
+      transport_cost_inr: 0,
+      remaining_budget_inr: totalBudget,
+      status: 'generating_stays',
+      lastCompletedStep: 'select-transport'
+    })
+    const tripId = params?.tripId as string
+    router.push(
+      tripId === "anonymous"
+        ? "/generate-stays/anonymous"
+        : `/generate-stays/${tripId}`
+    )
+  }
 
   const handleConfirmTransport = async () => {
-    if (!selectedOption || !trip) return
+    // FIX 1 — if nothing selected, treat as skip
+    if (!selectedOption) {
+      handleSkipTransport()
+      return
+    }
+    if (!trip) return
     setConfirming(true)
 
     const transportCost = selectedOption.price_min_inr
@@ -149,13 +277,13 @@ export default function SelectTransportPage() {
     const remainingBudget = totalBudget - (transportCost * 2)
 
     if (params?.tripId === "anonymous") {
-      localStorage.setItem("anonymous_trip", JSON.stringify({
-        ...trip,
+      saveAnonState({
         selected_transport: selectedOption,
         transport_cost_inr: transportCost,
         remaining_budget_inr: remainingBudget,
-        status: 'generating_stays'
-      }))
+        status: 'generating_stays',
+        lastCompletedStep: 'select-transport'
+      })
       router.push(`/generate-stays/anonymous`)
     } else {
       const supabase = createClient()
@@ -276,11 +404,11 @@ export default function SelectTransportPage() {
         </div>
       </div>
 
-      {/* Scraper Status Notification */}
-      {polling && (
+      {/* Live Prices Loading Notification */}
+      {loadingLive && (
         <div className="bg-[var(--gold)]/10 border-b border-[var(--gold)]/20 py-3 px-6 text-center text-xs font-serif text-[var(--gold)] flex items-center justify-center gap-3">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Checking real-time schedules and prices... Options will dynamically update below.
+          🔄 Loading live prices... up to 10 seconds
         </div>
       )}
 
@@ -363,10 +491,26 @@ export default function SelectTransportPage() {
                         </div>
                       )}
 
-                      {/* Header info */}
-                      <span className="text-[9px] uppercase tracking-[0.15em] font-semibold text-muted-foreground border border-border/40 px-3 py-1.5 rounded-full self-start mb-4 bg-card/20">
-                        {opt.mode}
-                      </span>
+                      {/* Header info + data source badge */}
+                      <div className="flex items-center gap-2 flex-wrap mb-4">
+                        <span className="text-[9px] uppercase tracking-[0.15em] font-semibold text-muted-foreground border border-border/40 px-3 py-1.5 rounded-full bg-card/20">
+                          {opt.mode}
+                        </span>
+                        {/* FIX 5: data source badge */}
+                        {(() => {
+                          const src = dataSource[activeTab]
+                          if (src === "live") return (
+                            <span className="text-[9px] text-green-600 font-medium">✓ Live price</span>
+                          )
+                          if (src === "calculated") return (
+                            <span className="text-[9px] text-blue-600">📐 Est. distance</span>
+                          )
+                          if (src === "estimated") return (
+                            <span className="text-[9px] text-amber-600">~ Estimated price</span>
+                          )
+                          return null
+                        })()}
+                      </div>
 
                       <h3 className="font-serif text-xl leading-tight pr-8 mb-2">{opt.operator}</h3>
 
@@ -430,7 +574,15 @@ export default function SelectTransportPage() {
         </AnimatePresence>
 
         {/* CTA Section */}
-        <div className="mt-16 flex flex-col items-center gap-3">
+        <div className="mt-16 flex flex-col items-center gap-4">
+          {/* Loading live prices indicator */}
+          {loadingLive && (
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+              <div className="animate-spin h-4 w-4 border-2 border-amber-400 border-t-transparent rounded-full" />
+              Loading live prices... (up to 10s)
+            </div>
+          )}
+
           <div className="flex gap-4">
             <button
               onClick={() => router.push("/trip-input")}
@@ -439,21 +591,36 @@ export default function SelectTransportPage() {
               <ArrowLeft className="h-3.5 w-3.5" /> Back
             </button>
             
+            {/* FIX 1: disabled={false} — never blocks the user */}
             <button
-              disabled={!selectedOption || confirming}
+              disabled={confirming}
               onClick={handleConfirmTransport}
               className="flex items-center justify-center gap-3 text-[11px] uppercase tracking-[0.2em] font-semibold px-12 py-5 bg-foreground text-background rounded-full hover:bg-foreground/90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg cursor-pointer"
             >
               {confirming ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Setting course...</>
-              ) : (
+              ) : selectedOption ? (
                 <>Confirm Route & Continue <ArrowRight className="h-4 w-4" /></>
+              ) : (
+                <>Skip & Continue <ArrowRight className="h-4 w-4" /></>
               )}
             </button>
           </div>
 
+          {/* FIX 1: Skip messaging when no transport selected */}
           {!selectedOption && (
-            <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/50">Select a transit route to proceed</p>
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-sm text-amber-600">
+                No transport option selected yet.
+                You can skip this step and add transport details later.
+              </p>
+              <button
+                onClick={handleSkipTransport}
+                className="text-sm underline text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Skip for now → Continue to Choose Stay
+              </button>
+            </div>
           )}
         </div>
       </main>

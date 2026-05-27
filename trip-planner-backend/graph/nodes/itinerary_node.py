@@ -6,12 +6,9 @@
 import json
 import logging
 from datetime import datetime
-from langchain_groq import ChatGroq
-from core.config import settings
+from core.llm_client import llm_client
 
 logger = logging.getLogger(__name__)
-
-llm = ChatGroq(api_key=settings.GROQ_API_KEY, model="llama-3.3-70b-versatile")
 
 
 async def itinerary_node(state: dict) -> dict:
@@ -26,6 +23,11 @@ async def itinerary_node(state: dict) -> dict:
         n_days = (end - start).days + 1
     except:
         n_days = 3
+
+    logger.info(f"Building itinerary for {req.destination}, {n_days} days")
+    places = retrieved.get('places', []) if retrieved else []
+    hotels = retrieved.get('hotels', []) if retrieved else []
+    logger.info(f"Using {len(places)} places, {len(hotels)} hotels from context")
 
     # Calculate budget in INR
     budget_inr = int(req.budget_usd * 83)
@@ -43,6 +45,26 @@ Duration: {selected_transport.get('duration_minutes', '?')} minutes
 Budget remaining after transport: ₹{remaining_budget_inr}
 Use remaining_budget_inr for all hotel and activity recommendations."""
 
+    # Build booking links section from selected transport
+    transport = state.get("selected_transport", {})
+    booking_url = transport.get("booking_url", "")
+    booking_section = ""
+    if booking_url:
+        booking_section = f"""
+BOOKING LINK FOR TRANSPORT:
+{booking_url}
+Include this exact URL in the itinerary JSON under the transport_booking_url field.
+"""
+
+    hotel_search_url = state.get("hotel_search_url", "")
+    hotel_section = ""
+    if hotel_search_url:
+        hotel_section = f"""
+HOTEL SEARCH URL:
+{hotel_search_url}
+Include this exact URL verbatim in the itinerary JSON under the hotel_search_url field. Never modify or shorten this URL.
+"""
+
     system_prompt = """You are India's #1 travel expert and local guide. You have encyclopedic knowledge of every famous cafe, restaurant, beach, temple, museum, market, trek, and hidden gem across India.
 You will build a hyper-detailed, day-by-day travel plan using real places, hotels, and activities.
 You must ONLY use the places and activities from the provided context (RAG context + user's selected places).
@@ -57,6 +79,8 @@ CRITICAL RULES:
 6. For every outdoor activity, provide an "indoorAlternative" (e.g. in case of heavy rain).
 7. Provide a "streetFood" array with 3 local street foods to try, their hints, and descriptions.
 8. Provide a "localTips" object containing "etiquette" (at least 2 items) and "scamsToAvoid" (at least 2 items).
+9. When a transport booking_url is provided, include it verbatim in the output JSON. Never modify or shorten URLs.
+10. When a hotel_search_url is provided, include it verbatim in the output JSON. Never modify or shorten URLs.
 
 You MUST output ONLY a valid JSON object matching the exact schema:
 {
@@ -65,6 +89,8 @@ You MUST output ONLY a valid JSON object matching the exact schema:
   "estimatedCost": "₹XXXXX",
   "highlights": ["Highlight 1", "Highlight 2"],
   "bestTimeToVisit": "e.g. October - March",
+  "transport_booking_url": "string or null",
+  "hotel_search_url": "string — provided MakeMyTrip search URL for the destination and dates",
   "streetFood": [
     {
       "name": "Street Food Name",
@@ -90,6 +116,7 @@ You MUST output ONLY a valid JSON object matching the exact schema:
           "whyVisit": "Short one-liner on why it's famous",
           "signatureDish": "Signature dish if food place, otherwise null",
           "proTip": "Pro-tip if monument/activity, otherwise null",
+          "booking_url": "string or null — direct booking link if available from context, else null",
           "indoorAlternative": {
             "name": "Real Indoor Alternative Place",
             "description": "Why go here if it rains"
@@ -131,6 +158,8 @@ Budget: ₹{budget_inr:,} total for {req.travelers} people
 Style: {req.style}
 Origin: {req.origin_city}
 {transport_str}
+{booking_section}
+{hotel_section}
 
 {stay_context}
 
@@ -168,27 +197,29 @@ Use your best judgment for the destination.
 Build the day-by-day itinerary JSON matching the exact schema."""
 
     try:
-        response = await llm.ainvoke([
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ])
+        content = await llm_client.reason(
+            prompt=user_prompt,
+            system=system_prompt,
+            max_tokens=2000,
+        )
 
-        content = response.content.strip()
+        clean = content.strip()
+        try:
+            itinerary = json.loads(clean)
+        except json.JSONDecodeError:
+            first_brace = clean.find('{')
+            if first_brace != -1:
+                itinerary, _ = json.JSONDecoder().raw_decode(clean[first_brace:])
+            else:
+                raise
 
-        # Parse JSON
-        import re
-        json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", content)
-        if json_match:
-            content = json_match.group(1)
-
-        itinerary = json.loads(content.strip())
-
+        logger.info("Itinerary built successfully")
         return {"itinerary": itinerary}
 
     except json.JSONDecodeError as e:
         logger.error(f"Itinerary JSON parse failed: {e}")
         return {
-            "itinerary": {"raw": response.content, "parseError": str(e)},
+            "itinerary": {"raw": content, "parseError": str(e)},
             "warnings": state.get("warnings", []) + ["Itinerary parsing failed"]
         }
     except Exception as e:

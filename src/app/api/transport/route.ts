@@ -9,11 +9,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Origin and destination are required' }, { status: 400 })
   }
 
+  const authenticated = searchParams.get('authenticated') !== 'false'
+
   const BACKEND = process.env.PYTHON_BACKEND_URL ?? "http://localhost:8000";
 
   try {
     const res = await fetch(
-      `${BACKEND}/api/transport?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`,
+      `${BACKEND}/api/transport?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&authenticated=${authenticated}`,
       {
         method: 'GET',
         headers: {

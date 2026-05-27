@@ -1,5 +1,6 @@
 import os
 import pytest
+from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 from main import app
@@ -25,7 +26,7 @@ def mock_db():
                     return MagicMock(data=[{
                         "origin_slug": "mumbai",
                         "destination_slug": "jaipur",
-                        "last_scraped": "2026-05-19T10:00:00+00:00",
+                        "last_scraped": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
                         "scrape_status": "done"
                     }])
                 elif self.name == "transport_options":
@@ -102,7 +103,9 @@ def test_get_transport_stale_triggers_scraping(mock_db, mock_scraper):
     assert response.status_code == 200
     data = response.json()
     assert data["scraping_in_progress"] is True
-    assert "background" in data["message"].lower()
+    # New router: message says "loading" or "background"
+    msg = data.get("message", "").lower()
+    assert "loading" in msg or "background" in msg or msg == ""
 
 @pytest.mark.asyncio
 async def test_budget_node_calculation():

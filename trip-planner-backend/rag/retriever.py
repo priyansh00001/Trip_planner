@@ -46,6 +46,7 @@ class DestinationRetriever:
         max_tokens: int = 5000
     ) -> RetrievalResult:
         """Retrieve all destination data for itinerary generation."""
+        logger.info(f"Retrieving context for {destination_slug}")
         result = RetrievalResult(destination={})
 
         # Step 1: Fetch destination
@@ -95,6 +96,8 @@ class DestinationRetriever:
             hotels = [h for h in (hotels_response.data or []) if not h.get("is_stale", False)]
             hotels.sort(key=lambda x: x.get("price_min_inr", 999999))
             result.hotels = hotels[:15]
+
+        logger.info(f"Found {len(result.places)} places, {len(result.hotels)} hotels from DB")
 
         # Step 5: Fetch events
         now = datetime.utcnow()
@@ -155,6 +158,8 @@ class DestinationRetriever:
             result.blog_tips = result.blog_tips[:15]
             result.local_insights = result.local_insights[:10]
             result.token_estimate = self._estimate_tokens(result)
+
+        logger.info(f"Token estimate: {result.token_estimate}")
 
         # Step 9: Calculate data freshness
         result.data_freshness = self._get_data_freshness(
